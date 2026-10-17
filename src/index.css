@@ -1,0 +1,4 @@
+#root, body, html { height: 100%; }
+.simplebar-scrollbar::before { background: hsl(0 0% 100%); }
+input[type=checkbox]:disabled ~ svg { opacity: .1; }
+.no-select div { user-select: none; }

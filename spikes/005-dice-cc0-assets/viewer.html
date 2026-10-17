@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>dice-spike</title></head>
+<body style="margin:0;background:#202020">
+<canvas id="c" style="width:640px;height:640px"></canvas>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+<script>
+window.__diceSpike = {
+  engine: null,
+  scene: null,
+  mesh: null,
+  async load(url) {
+    const canvas = document.getElementById("c");
+    if (!this.engine) {
+      this.engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true });
+    }
+    if (this.scene) { this.scene.dispose(); }
+    const scene = new BABYLON.Scene(this.engine);
+    scene.clearColor = new BABYLON.Color4(0.12, 0.12, 0.12, 1);
+    this.scene = scene;
+    const light = new BABYLON.HemisphericLight("l", new BABYLON.Vector3(0, 1, 0), scene);
+    light.intensity = 1.1;
+    const dir = new BABYLON.DirectionalLight("d", new BABYLON.Vector3(-0.3, -1, -0.5), scene);
+    dir.intensity = 0.6;
+    const result = await BABYLON.SceneLoader.ImportMeshAsync("", url, "", scene);
+    this.allMeshes = result.meshes;
+    const candidates = result.meshes.filter(m => m.getTotalVertices() > 0);
+    candidates.sort((a, b) => b.getTotalVertices() - a.getTotalVertices());
+    const root = candidates[0] || result.meshes[0];
+    this.mesh = root;
+    window.__diceSpikeMeshInfo = result.meshes.map(m => ({
+      name: m.name,
+      verts: m.getTotalVertices(),
+      material: m.material ? m.material.name : null,
+    }));
+    const camera = new BABYLON.ArcRotateCamera("cam", 0, 0, 6, BABYLON.Vector3.Zero(), scene);
+    camera.minZ = 0.01;
+    this.camera = camera;
+    this.engine.runRenderLoop(() => scene.render());
+    return {
+      vertexCount: root.getTotalVertices(),
+      boundingBox: root.getBoundingInfo().boundingBox.extendSizeWorld.asArray(),
+    };
+  },
+  connectedComponents(meshName, weldTolerance) {
+    const mesh = this.allMeshes.find(m => m.name === meshName);
+    const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+    const indices = mesh.getIndices();
+    const tol = weldTolerance || 1e-5;
+    // Weld vertices that share a position (glTF duplicates verts per
+    // triangle for flat shading, so raw vertex ids never connect across
+    // triangles even on the very same physical edge).
+    const keyOf = (i) => {
+      const x = Math.round(positions[i * 3] / tol);
+      const y = Math.round(positions[i * 3 + 1] / tol);
+      const z = Math.round(positions[i * 3 + 2] / tol);
+      return `${x}_${y}_${z}`;
+    };
+    const vertCount = positions.length / 3;
+    const keyToWelded = new Map();
+    const weldedOf = new Int32Array(vertCount);
+    for (let i = 0; i < vertCount; i++) {
+      const key = keyOf(i);
+      if (!keyToWelded.has(key)) keyToWelded.set(key, keyToWelded.size);
+      weldedOf[i] = keyToWelded.get(key);
+    }
+    const weldedCount = keyToWelded.size;
+    const adjacency = Array.from({ length: weldedCount }, () => new Set());
+    const triCount = indices.length / 3;
+    for (let t = 0; t < triCount; t++) {
+      const a = weldedOf[indices[t * 3]];
+      const b = weldedOf[indices[t * 3 + 1]];
+      const c = weldedOf[indices[t * 3 + 2]];
+      adjacency[a].add(b); adjacency[b].add(a);
+      adjacency[b].add(c); adjacency[c].add(b);
+      adjacency[a].add(c); adjacency[c].add(a);
+    }
+    const componentOf = new Int32Array(weldedCount).fill(-1);
+    let componentCount = 0;
+    for (let start = 0; start < weldedCount; start++) {
+      if (componentOf[start] !== -1) continue;
+      const stack = [start];
+      componentOf[start] = componentCount;
+      while (stack.length) {
+        const current = stack.pop();
+        for (const next of adjacency[current]) {
+          if (componentOf[next] === -1) {
+            componentOf[next] = componentCount;
+            stack.push(next);
+          }
+        }
+      }
+      componentCount++;
+    }
+    // Per component: centroid position and average normal, in LOCAL mesh
+    // space (matches locator space in src/dice/procedural.ts).
+    const normals = mesh.getVerticesData(BABYLON.VertexBuffer.NormalKind);
+    const sums = Array.from({ length: componentCount }, () => ({
+      px: 0, py: 0, pz: 0, nx: 0, ny: 0, nz: 0, count: 0,
+    }));
+    for (let i = 0; i < vertCount; i++) {
+      const comp = componentOf[weldedOf[i]];
+      const s = sums[comp];
+      s.px += positions[i * 3]; s.py += positions[i * 3 + 1]; s.pz += positions[i * 3 + 2];
+      s.nx += normals[i * 3]; s.ny += normals[i * 3 + 1]; s.nz += normals[i * 3 + 2];
+      s.count++;
+    }
+    return sums.map((s, idx) => ({
+      component: idx,
+      vertexCount: s.count,
+      centroid: [s.px / s.count, s.py / s.count, s.pz / s.count],
+      normal: (() => {
+        const len = Math.hypot(s.nx, s.ny, s.nz) || 1;
+        return [s.nx / len, s.ny / len, s.nz / len];
+      })(),
+    }));
+  },
+  uniqueNormals(tolerance) {
+    const mesh = this.mesh;
+    const normals = mesh.getVerticesData(BABYLON.VertexBuffer.NormalKind) || [];
+    const unique = [];
+    for (let i = 0; i < normals.length; i += 3) {
+      const n = new BABYLON.Vector3(normals[i], normals[i+1], normals[i+2]).normalize();
+      if (!unique.some(u => BABYLON.Vector3.Dot(u, n) > tolerance)) {
+        unique.push(n);
+      }
+    }
+    return unique.map(n => n.asArray());
+  },
+  faceDirectionsFromMarkings(meshName, tolerance) {
+    const clusters = [];
+    for (const component of this.connectedComponents(meshName)) {
+      const normal = new BABYLON.Vector3(...component.normal).normalize();
+      let cluster = clusters.find(item => BABYLON.Vector3.Dot(item.normal, normal) > (tolerance || 0.985));
+      if (!cluster) {
+        cluster = { normal: BABYLON.Vector3.Zero(), components: [], vertexCount: 0 };
+        clusters.push(cluster);
+      }
+      cluster.normal.addInPlace(normal.scale(component.vertexCount));
+      cluster.components.push(component);
+      cluster.vertexCount += component.vertexCount;
+    }
+    return clusters.map(cluster => ({
+      normal: cluster.normal.normalize().asArray(),
+      componentCount: cluster.components.length,
+      vertexCount: cluster.vertexCount,
+      components: cluster.components.map(component => ({
+        component: component.component,
+        vertexCount: component.vertexCount,
+        centroid: component.centroid,
+      })),
+    })).sort((a, b) => b.vertexCount - a.vertexCount);
+  },
+  pointCameraAtNormal(nx, ny, nz, distance) {
+    const dir = new BABYLON.Vector3(nx, ny, nz).normalize();
+    const pos = dir.scale(distance || 4);
+    this.camera.setPosition(pos);
+    this.camera.setTarget(BABYLON.Vector3.Zero());
+    this.scene.render();
+  },
+};
+</script>
+</body>
+</html>

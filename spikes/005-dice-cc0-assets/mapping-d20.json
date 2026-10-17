@@ -1,0 +1,497 @@
+{
+  "die": "D20",
+  "asset": "PolyhedralDice/D20.gltf (CC0)",
+  "convention": "Regular icosahedron. Each of the 20 triangular faces carries one engraved digit (1-20), identified via connected-component clustering (weld-by-position + BFS-by-triangle) on the Antique_Gold_UV_PBR material (D20_primitive1, 13482 verts), separated from the die body/trim (Dice_Recess_BlackRed_UV_PBR, D20_primitive0, 60 verts -- same tiny-trim pattern as D8/D12, not a face). D20_primitive1 decomposes into 1 body-shell component (3168 verts, centroid at origin) + 20 small corner-stud decorative components (48-60 verts each, one per face, used as the primary direction key) + 31 digit-glyph components (151-514 verts each): 9 faces have exactly 1 glyph component (single-digit values 1-9) and 11 faces have exactly 2 glyph components (two-digit values 10-20) -- this glyph-count-per-face split (9 singles + 11 doubles = 20, matching 1-20 exactly) was itself a strong independent cross-check of the clustering before any vision read was done. The glTF root node (__root__) carries a non-identity transform: rotationQuaternion [0,1,0,0] (180 deg around Y) + scaling [1,1,-1] (mirror on Z) -- same as D8/D12's pattern, but RE-VERIFIED rather than assumed. As predicted, faceDirectionsFromMarkings's averaged-normal clustering (threshold 0.985) was NOT used/trusted; instead each of the 20 stud components' own NORMALIZED CENTROID DIRECTION was used as the clustering key (pairwise closest-stud dot product was only 0.776, far below any merge threshold, so all 20 directions separated trivially cleanly -- no over-merge occurred, unlike the D12 case), and every glyph component was assigned to its nearest stud direction by dot product (lowest assignment confidence 0.9961, all others >0.997). Camera views and the antipodal (opposite-pair) analysis use each face's combined stud+glyph vertex-weighted centroid direction transformed through the mesh's world matrix (world matrix diagonal was [-1.0392818, 1.0392818, 1.0392818, 1] -- a pure X-sign-flip plus uniform scale once root rotation/scale are combined with the primitive's own identity transform, so world_dir = [-x_local, y_local, z_local]).",
+  "mesh_notes": {
+    "D20_primitive0": "Dice_Recess_BlackRed_UV_PBR material, 60 vertices -- body/recess trim only, not a face (matches D8/D12's tiny-trim pattern).",
+    "D20_primitive1": "Antique_Gold_UV_PBR material, 13482 vertices -- body shell (component 0, 3168 verts, centroid at origin) + 20 small corner-stud decorative components (48-60 verts each, one per face, used as the primary per-face direction anchor) + 31 large digit-glyph components (151-514 verts each: 9 faces with 1 glyph = single-digit values, 11 faces with 2 glyphs = two-digit values) -- confirmed by screenshot+vision reading of each of the 20 face clusters independently, with a second independent crop+brighten vision pass on the two 6/9-ambiguous faces."
+  },
+  "mapping": [
+    {
+      "cluster": 1,
+      "stud_component": 1,
+      "stud_vertex_count": 56,
+      "glyph_components": [
+        35,
+        36
+      ],
+      "glyph_vertex_counts": [
+        184,
+        264
+      ],
+      "direction_local": [
+        0.5824,
+        -0.5816,
+        -0.5679
+      ],
+      "value": 17
+    },
+    {
+      "cluster": 2,
+      "stud_component": 2,
+      "stud_vertex_count": 52,
+      "glyph_components": [
+        29,
+        30
+      ],
+      "glyph_vertex_counts": [
+        356,
+        219
+      ],
+      "direction_local": [
+        -0.0141,
+        -0.3756,
+        -0.9267
+      ],
+      "value": 14
+    },
+    {
+      "cluster": 3,
+      "stud_component": 3,
+      "stud_vertex_count": 50,
+      "glyph_components": [
+        50
+      ],
+      "glyph_vertex_counts": [
+        390
+      ],
+      "direction_local": [
+        -0.0012,
+        0.3494,
+        -0.937
+      ],
+      "value": 8
+    },
+    {
+      "cluster": 4,
+      "stud_component": 4,
+      "stud_vertex_count": 54,
+      "glyph_components": [
+        47
+      ],
+      "glyph_vertex_counts": [
+        374
+      ],
+      "direction_local": [
+        0.5792,
+        0.5694,
+        -0.5834
+      ],
+      "value": 5
+    },
+    {
+      "cluster": 5,
+      "stud_component": 5,
+      "stud_vertex_count": 54,
+      "glyph_components": [
+        23,
+        24
+      ],
+      "glyph_vertex_counts": [
+        223,
+        211
+      ],
+      "direction_local": [
+        0.9346,
+        -0.018,
+        -0.3551
+      ],
+      "value": 11
+    },
+    {
+      "cluster": 6,
+      "stud_component": 6,
+      "stud_vertex_count": 56,
+      "glyph_components": [
+        21,
+        22
+      ],
+      "glyph_vertex_counts": [
+        248,
+        198
+      ],
+      "direction_local": [
+        0.9346,
+        -0.0128,
+        0.3555
+      ],
+      "value": 10
+    },
+    {
+      "cluster": 7,
+      "stud_component": 7,
+      "stud_vertex_count": 56,
+      "glyph_components": [
+        33,
+        34
+      ],
+      "glyph_vertex_counts": [
+        392,
+        267
+      ],
+      "direction_local": [
+        0.5799,
+        -0.5877,
+        0.5642
+      ],
+      "value": 16
+    },
+    {
+      "cluster": 8,
+      "stud_component": 8,
+      "stud_vertex_count": 48,
+      "glyph_components": [
+        39,
+        40
+      ],
+      "glyph_vertex_counts": [
+        384,
+        227
+      ],
+      "direction_local": [
+        0.3493,
+        -0.9369,
+        -0.0122
+      ],
+      "value": 19
+    },
+    {
+      "cluster": 9,
+      "stud_component": 9,
+      "stud_vertex_count": 56,
+      "glyph_components": [
+        42,
+        43
+      ],
+      "glyph_vertex_counts": [
+        231,
+        297
+      ],
+      "direction_local": [
+        -0.3494,
+        -0.9369,
+        -0.008
+      ],
+      "value": 20
+    },
+    {
+      "cluster": 10,
+      "stud_component": 10,
+      "stud_vertex_count": 58,
+      "glyph_components": [
+        37,
+        38
+      ],
+      "glyph_vertex_counts": [
+        514,
+        269
+      ],
+      "direction_local": [
+        -0.5851,
+        -0.5844,
+        -0.5623
+      ],
+      "value": 18
+    },
+    {
+      "cluster": 11,
+      "stud_component": 11,
+      "stud_vertex_count": 48,
+      "glyph_components": [
+        25,
+        26
+      ],
+      "glyph_vertex_counts": [
+        289,
+        211
+      ],
+      "direction_local": [
+        -0.9362,
+        -0.0098,
+        -0.3513
+      ],
+      "value": 12
+    },
+    {
+      "cluster": 12,
+      "stud_component": 12,
+      "stud_vertex_count": 52,
+      "glyph_components": [
+        48
+      ],
+      "glyph_vertex_counts": [
+        394
+      ],
+      "direction_local": [
+        -0.5878,
+        0.5621,
+        -0.5818
+      ],
+      "value": 6
+    },
+    {
+      "cluster": 13,
+      "stud_component": 13,
+      "stud_vertex_count": 48,
+      "glyph_components": [
+        44
+      ],
+      "glyph_vertex_counts": [
+        298
+      ],
+      "direction_local": [
+        -0.3603,
+        0.9328,
+        -0.0022
+      ],
+      "value": 2
+    },
+    {
+      "cluster": 14,
+      "stud_component": 14,
+      "stud_vertex_count": 56,
+      "glyph_components": [
+        41
+      ],
+      "glyph_vertex_counts": [
+        221
+      ],
+      "direction_local": [
+        0.3707,
+        0.9287,
+        0.0017
+      ],
+      "value": 1
+    },
+    {
+      "cluster": 15,
+      "stud_component": 15,
+      "stud_vertex_count": 54,
+      "glyph_components": [
+        46
+      ],
+      "glyph_vertex_counts": [
+        411
+      ],
+      "direction_local": [
+        0.5949,
+        0.5536,
+        0.5828
+      ],
+      "value": 4
+    },
+    {
+      "cluster": 16,
+      "stud_component": 16,
+      "stud_vertex_count": 52,
+      "glyph_components": [
+        49
+      ],
+      "glyph_vertex_counts": [
+        151
+      ],
+      "direction_local": [
+        -0.0131,
+        0.373,
+        0.9277
+      ],
+      "value": 7
+    },
+    {
+      "cluster": 17,
+      "stud_component": 17,
+      "stud_vertex_count": 50,
+      "glyph_components": [
+        27,
+        28
+      ],
+      "glyph_vertex_counts": [
+        344,
+        220
+      ],
+      "direction_local": [
+        0.0099,
+        -0.3653,
+        0.9309
+      ],
+      "value": 13
+    },
+    {
+      "cluster": 18,
+      "stud_component": 18,
+      "stud_vertex_count": 60,
+      "glyph_components": [
+        31,
+        32
+      ],
+      "glyph_vertex_counts": [
+        376,
+        264
+      ],
+      "direction_local": [
+        -0.5667,
+        -0.5854,
+        0.5798
+      ],
+      "value": 15
+    },
+    {
+      "cluster": 19,
+      "stud_component": 19,
+      "stud_vertex_count": 60,
+      "glyph_components": [
+        51
+      ],
+      "glyph_vertex_counts": [
+        384
+      ],
+      "direction_local": [
+        -0.9346,
+        -0.0049,
+        0.3556
+      ],
+      "value": 9
+    },
+    {
+      "cluster": 20,
+      "stud_component": 20,
+      "stud_vertex_count": 56,
+      "glyph_components": [
+        45
+      ],
+      "glyph_vertex_counts": [
+        427
+      ],
+      "direction_local": [
+        -0.5785,
+        0.5766,
+        0.577
+      ],
+      "value": 3
+    }
+  ],
+  "opposite_pairs": [
+    {
+      "clusters": [
+        1,
+        20
+      ],
+      "values": [
+        17,
+        3
+      ],
+      "dot_product": -0.99994,
+      "sum": 20
+    },
+    {
+      "clusters": [
+        2,
+        16
+      ],
+      "values": [
+        14,
+        7
+      ],
+      "dot_product": -0.99963,
+      "sum": 21
+    },
+    {
+      "clusters": [
+        3,
+        17
+      ],
+      "values": [
+        8,
+        13
+      ],
+      "dot_product": -0.99982,
+      "sum": 21
+    },
+    {
+      "clusters": [
+        4,
+        18
+      ],
+      "values": [
+        5,
+        15
+      ],
+      "dot_product": -0.99979,
+      "sum": 20
+    },
+    {
+      "clusters": [
+        5,
+        19
+      ],
+      "values": [
+        11,
+        9
+      ],
+      "dot_product": -0.99974,
+      "sum": 20
+    },
+    {
+      "clusters": [
+        6,
+        11
+      ],
+      "values": [
+        10,
+        12
+      ],
+      "dot_product": -0.99973,
+      "sum": 22
+    },
+    {
+      "clusters": [
+        7,
+        12
+      ],
+      "values": [
+        16,
+        6
+      ],
+      "dot_product": -0.99948,
+      "sum": 22
+    },
+    {
+      "clusters": [
+        8,
+        13
+      ],
+      "values": [
+        19,
+        2
+      ],
+      "dot_product": -0.99983,
+      "sum": 21
+    },
+    {
+      "clusters": [
+        9,
+        14
+      ],
+      "values": [
+        20,
+        1
+      ],
+      "dot_product": -0.99972,
+      "sum": 21
+    },
+    {
+      "clusters": [
+        10,
+        15
+      ],
+      "values": [
+        18,
+        4
+      ],
+      "dot_product": -0.99927,
+      "sum": 22
+    }
+  ],
+  "validated": true,
+  "validation_notes": "Method: (1) Computed connected components on D20_primitive1 via weld-by-position + BFS-by-triangle (52 components: 1 body shell + 20 studs + 31 glyphs). (2) Per the known faceDirectionsFromMarkings over-merge pitfall (confirmed on D12), did NOT use that helper's averaged-normal clustering at all for D20; instead clustered directly in Python by each STUD component's own normalized centroid direction (the 20 stud centroids are naturally well-separated -- closest pairwise dot product among all 20 studs was only 0.776, nowhere near a false-merge threshold), then assigned each of the 31 glyph components to its nearest stud direction by dot product (lowest confidence 0.9961, most >0.997) -- yielding exactly 20 clusters, matching the icosahedron's known face count, with the glyph-count split (9 singles, 11 doubles) itself confirming the clustering was semantically correct for a 1-20 labeling before any screenshot was taken. (3) Confirmed the root node's non-identity world transform (180 deg Y rotation + Z-mirror scale) and transformed every cluster's vertex-weighted combined centroid direction through this transform (world_dir = [-x,y,z]) before aiming the camera -- did not assume this was identical to D8/D12's exact transform, re-verified it fresh for this asset. (4) For all 20 faces, verified camera alignment by projecting the SAME cluster's centroid (at the body's true radius, 0.4145) through the world-space view/projection matrix via BABYLON.Vector3.Project and confirming it landed within <0.0001px of the exact canvas center (320.0, 320.0 of a 640x640 canvas, captured with captureBeyondViewport+explicit clip after confirming window.innerWidth/innerHeight did not match the canvas size and so the clip was required) -- confirmed for every one of the 20 faces before reading any digit. (5) Read each of the 20 faces via vision_analyze on the full screenshot with a neutral, non-leading prompt; for the one face with an initially low-confidence read (cluster 7, read as '16' but flagged low-confidence due to a dim/underexposed render), re-cropped+brightened+3x-upscaled the same screenshot and re-ran vision_analyze independently, which confirmed '16' with higher confidence and explicit loop-position reasoning (closed loop at bottom = 6, open curve at top, correctly cross-checked against the 9-reading on the antipodal/nearby face). Additionally cross-checked the two faces read as plain 6 and plain 9 (clusters 12 and 19) with a second independent zoomed+brightened vision pass each, explicitly asking for loop-position (top vs bottom) and tail direction rather than repeating the digit back -- both passes agreed: cluster 12 = 6 (loop at bottom, open curve trailing up-right), cluster 19 = 9 (loop at top, open tail trailing down-left). No digit on this asset carries a disambiguating underline/dot; all 6/9 calls rest on loop-position reasoning plus the independent re-crop pass, consistent across all reads. (6) Validated the complete value set is exactly {1,2,...,20} with NO repeats and NO gaps -- confirmed on the very first full pass (20 distinct values, set equality against range(1,21) holds), no face needed re-reading on count-validation grounds. (7) Computed the 10 antipodal pairs by nearest-dot-product matching among the 20 world-space cluster directions -- all 10 pairs are unambiguous near-perfect opposites (dot products -0.9999 to -0.99927, each pair's dot is far more negative than any other candidate pairing for either member, so pairing itself is not in doubt). (8) Checked the opposite-faces-sum-to-21 convention HONESTLY rather than forcing it: of the 10 pairs, only 4 sum to 21 (pairs valued (14,7), (8,13), (19,2), (20,1)); the remaining 6 pairs sum to 20 (three pairs: (17,3), (5,15), (11,9)) or 22 (three pairs: (10,12), (16,6), (18,4)). This means D20 in this asset, like the already-documented D8 (sums 8/10, not constant 9) and D12 (only 2/6 pairs matching 13) in this same PolyhedralDice CC0 family, does NOT follow the standard opposite-faces-sum-to-N+1 physical dice convention -- it is close (within +-1 of 21 for every single pair) but not exact. This is reported honestly per instructions, not forced to match the textbook convention."
+}

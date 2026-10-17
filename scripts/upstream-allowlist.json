@@ -1,0 +1,5 @@
+[
+  { "path": "package.json", "reason": "dependency manifest, not expression" },
+  { "path": "yarn.lock", "reason": "generated lockfile, not expression" },
+  { "path": "tsconfig.json", "reason": "build config, not expression" }
+]

@@ -1,0 +1,66 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/build
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# typescript
+tsconfig.tsbuildinfo
+# This project uses yarn, npm lockfile would drift
+package-lock.json
+
+# Wails desktop shell: frontend/ is the Vite build output copied in for
+# go:embed (wails.json's frontend:build is intentionally empty — see
+# spikes/001-wails-webview2/README.md), and build/bin/ is the compiled
+# .exe/.log — both generated, never hand-edited. build/appicon.png and
+# build/windows/* are the actual source icon/manifest templates and stay
+# tracked.
+desktop/frontend/
+desktop/build/bin/
+# Local Wails copies outside build/bin are also generated release artifacts.
+/desktop/*.exe
+
+# Go build output
+broker-go/broker.exe
+broker-go/broker
+
+# Obsidian vault config, unrelated to this repo
+.obsidian/
+
+# Freigeist source family: 74 Fontspring DEMO files (2.4 MB) whose embedded
+# EULA is evaluation-only. The wordmark no longer uses this face (swapped
+# for Archivo Variable), but the raw family still sits on disk here from
+# earlier work — keep it out of version control regardless.
+Freigeist-Sans-Font-Family/
+
+# Real legacy table export (.owlbear, ~40MB with embedded assets).
+# Irreplaceable player data, never commit it.
+/backups/
+
+# scripts/upstream-similarity.mjs's default --out target. Generated every
+# time the gate runs, never a snapshot to hand-commit.
+/docs/authorship-baseline.csv
+
+# Local env files carry a deploy-specific broker URL; .env.example documents
+# the shape without committing a real target.
+.env
+.env.production
+

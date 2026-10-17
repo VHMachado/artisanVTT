@@ -1,0 +1,16 @@
+@keyframes spinner-turn {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  position: relative;
+  animation: spinner-turn 2s linear infinite;
+}

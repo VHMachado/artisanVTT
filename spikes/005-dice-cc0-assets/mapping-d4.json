@@ -1,0 +1,72 @@
+{
+  "die": "D4",
+  "asset": "PolyhedralDice/D4.gltf (CC0)",
+  "convention": "Standard tetrahedral (Zocchi/Western) D4 reading convention. Each of the 4 triangular faces displays the values carried by its 3 corner vertices. A physical vertex's numeral is repeated on all 3 adjoining faces. To read a settled roll, use the value carried by the apex opposite the resting face: exactly one face points down and the opposite vertex points up. The runtime must use the vertex directions and values below, not a face-number convention.",
+  "mesh_notes": {
+    "D4_Corrected_primitive0": "Dice_Recess_BlackRed_UV_PBR material, 12 vertices / 4 triangles. It provides the tetrahedron's exact face topology: A=[7,5,0] normal [-,+,-], B=[10,8,2] normal [+,-,-], C=[4,11,1] normal [+,+,+], D=[3,6,9] normal [-,-,+].",
+    "D4_Corrected_primitive1": "Antique_Gold_UV_PBR material, 5218 vertices. Component 0 is a 624-vertex core; components 1-4 are small decorative apex trim; components 5-16 are the 12 numeral glyphs (3 per triangular face).",
+    "grouping": "Glyphs were assigned to the primitive0 face with the greatest centroid dot product against its exact face normal, then to the nearest of primitive0's four physical vertices. This gives three independent glyph readings per vertex."
+  },
+  "faces": [
+    {
+      "face": "A",
+      "normal_local": [-0.577350269, 0.577350269, -0.577350269],
+      "glyph_components_primitive1": [5, 9, 12],
+      "glyph_values": [1, 2, 3],
+      "opposite_vertex": "V4",
+      "opposite_vertex_value": 4
+    },
+    {
+      "face": "B",
+      "normal_local": [0.577350269, -0.577350269, -0.577350269],
+      "glyph_components_primitive1": [8, 11, 14],
+      "glyph_values": [2, 3, 4],
+      "opposite_vertex": "V2",
+      "opposite_vertex_value": 1
+    },
+    {
+      "face": "C",
+      "normal_local": [0.577350269, 0.577350269, 0.577350269],
+      "glyph_components_primitive1": [6, 10, 15],
+      "glyph_values": [1, 2, 4],
+      "opposite_vertex": "V3",
+      "opposite_vertex_value": 3
+    },
+    {
+      "face": "D",
+      "normal_local": [-0.577350269, -0.577350269, 0.577350269],
+      "glyph_components_primitive1": [7, 13, 16],
+      "glyph_values": [1, 3, 4],
+      "opposite_vertex": "V1",
+      "opposite_vertex_value": 2
+    }
+  ],
+  "vertices": [
+    {
+      "vertex": "V1",
+      "direction_local_from_center": [0.588728652, 0.588728652, -0.553892724],
+      "value": 2,
+      "glyph_components_primitive1": [8, 9, 10]
+    },
+    {
+      "vertex": "V2",
+      "direction_local_from_center": [-0.553892724, 0.588728652, 0.588728652],
+      "value": 1,
+      "glyph_components_primitive1": [5, 6, 7]
+    },
+    {
+      "vertex": "V3",
+      "direction_local_from_center": [-0.588728652, -0.553892724, -0.588728652],
+      "value": 3,
+      "glyph_components_primitive1": [11, 12, 13]
+    },
+    {
+      "vertex": "V4",
+      "direction_local_from_center": [0.588728652, -0.588728652, 0.553892724],
+      "value": 4,
+      "glyph_components_primitive1": [14, 15, 16]
+    }
+  ],
+  "validated": true,
+  "validation_notes": "Validated 2026-10-10 with a fresh isolated Edge headless render (CDP 9654) after loading D4.gltf over local HTTP. The camera never used an untransformed local camera direction: mesh.computeWorldMatrix(true) ran first and every camera direction was transformed with Vector3.TransformNormal(localFaceNormal, mesh.getWorldMatrix()).normalize(). The mesh world matrix was diag[-0.935429, +0.935429, +0.935429, 1], so this transformation was required. Each of the 12 target glyph centroids was separately projected with Vector3.Project and landed at canvas center (320,320) before its capture. Captures used Page.captureScreenshot with captureBeyondViewport:true and an explicit 640x640 clip because the headless viewport was only 676x581. Vision reads, grouped by actual physical vertex, were V1 components [8,9,10] = [2,2,2], V2 [5,6,7] = [1,1,1], V3 [11,12,13] = [3,3,3], and V4 [14,15,16] = [4,4,4]. The three readings for every vertex therefore agree, and the vertex value set is exactly {1,2,3,4} with no repetition. Evidence images and evidence.json were generated in the Hermes scratch directory by validate-d4-worldspace.cjs; the mapping itself is self-contained and safe for the Phase 25.5 runtime consumer."
+}

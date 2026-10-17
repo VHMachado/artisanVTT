@@ -1,0 +1,30 @@
+services:
+  broker:
+    build: .
+    image: artisan-broker-go:latest
+    restart: unless-stopped
+    # Bound to the Tailscale interface only: never 0.0.0.0, never a LAN IP.
+    # Reached by the desktop app as ws://<broker-host>:9420 over Tailscale
+    # — no port is ever opened on the router. Replace the bind address
+    # below with this host's own Tailscale IP/MagicDNS name.
+    ports:
+      - "<tailscale-ip-or-hostname>:9420:9420"
+    environment:
+      PORT: "9420"
+      # Desktop app requests never carry a browser Origin header, so this
+      # only matters if a browser build is ever pointed at this broker too.
+      # Kept permissive on purpose (see backend's own ALLOW_ORIGIN default
+      # in the repo root docker-compose.yml).
+      ALLOW_ORIGIN: ".*"
+      DATA_DIR: "/data"
+      # Code default is 4 (internal/config/config.go) — way below a
+      # typical table's headcount (incl. GM). Set generously above the
+      # real size so nobody hits a hard "server not accepting new
+      # accounts" wall mid-campaign; the tailnet is still the real
+      # perimeter, this is only a sanity cap.
+      MAX_ACCOUNTS: "20"
+    volumes:
+      # Bind mount, not a named volume: this needs to be a plain host path
+      # so it lands directly in a host-level backup tool's path list,
+      # same pattern as any other stateful service directory.
+      - ./data:/data

@@ -1,0 +1,13 @@
+.reconnecting-icon {
+  animation: reconnecting-spin 1.4s linear infinite;
+}
+
+@keyframes reconnecting-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}

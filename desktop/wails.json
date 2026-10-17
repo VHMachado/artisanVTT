@@ -1,0 +1,17 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "artisan-desktop",
+  "outputfilename": "artisan-desktop",
+  "frontend:dir": "frontend",
+  "frontend:install": "",
+  "frontend:build": "",
+  "wailsjsdir": "./frontend",
+  "author": {
+    "name": "Victor"
+  },
+  "info": {
+    "productName": "Artisan",
+    "productVersion": "1.10.2",
+    "comments": "A desktop virtual tabletop for small D&D 5e groups"
+  }
+}
