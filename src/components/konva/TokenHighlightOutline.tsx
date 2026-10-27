@@ -1,78 +1,72 @@
 import Konva from "konva";
-import { Rect, Circle, Line } from "react-konva";
-
-import { Outline } from "../../types/Outline";
+import { Rect } from "react-konva";
 
 type TokenHighlightOutlineProps = {
-  outline: Outline;
+  /** The token's own box, in the rotated transform-root's coordinate
+   * space (0..width, 0..height) — the same space TokenOutline and the
+   * token image use. */
+  width: number;
+  height: number;
   color: string;
   strokeWidth: number;
-  /** Pedido do usuário (2026-10-12, quarta rodada): halo suave atrás do
-   * contorno — DESIGN.md "Elevation & Depth" item 3 ("Glow pontual, não
-   * caixa de sombra ... halo suave em primary atrás de um elemento
-   * circular de destaque"). Omitido (undefined) para um indicador que
-   * deve ser só a borda, sem o halo — ver o comentário no Token.tsx que
-   * usa isto para diferenciar seleção (sem glow) de turno ativo (com
-   * glow). */
+  /** Soft halo behind the border — DESIGN.md "Elevation & Depth" item 3.
+   * Omitted for an indicator that should be the border alone; see the
+   * comment in Token.tsx that tells selection (no glow) apart from active
+   * turn (glow). */
   glowBlur?: number;
+  /** Rounds the box's corners instead of the sharp right angles a plain
+   * Konva Rect draws by default — the user found the square corners hard
+   * to read against round/organic token art (dragon wings, etc).
+   * Defaults to a size-proportional radius so it scales with the token
+   * instead of looking chunky on a small token or negligible on a huge
+   * one; pass an explicit value to override. */
+  cornerRadius?: number;
 } & Konva.ShapeConfig;
 
 /**
- * Pedido do usuário (2026-10-12, quarta rodada): substitui a antiga
- * borda azul sempre-retangular (reportada como "amadora") por um
- * contorno que segue a MESMA forma do recorte do token (círculo,
- * retângulo ou caminho — ver `getScaledOutline`/`TokenOutline.tsx`,
- * mesma fonte geométrica) na paleta dourado/bronze do DESIGN.md em vez
- * de uma cor azul solta do resto do tema. Reaproveitado por Token.tsx
- * para os dois indicadores que seguem essa linguagem visual: seleção
- * (`selected`, borda sem glow) e turno ativo no combate (`isActiveTurn`,
- * borda + glow — ver `glowBlur`).
+ * The border drawn around a token for the two states that use this visual
+ * language: selected (border only) and active turn in combat (border plus
+ * glow — see `glowBlur`).
+ *
+ * Deliberately a PLAIN BOX, identical for every token whatever its art.
+ * It used to trace the token's own cut-out shape (circle/rect/path, via
+ * `getScaledOutline`, the same geometry TokenOutline.tsx uses for its
+ * silhouette), which on a path outline drew a wobbly contour that followed
+ * every bump of the artwork. The user asked for "só um quadrado em torno
+ * do token, sem esse desenho dinâmico", so the art no longer influences
+ * the indicator's shape at all.
  */
 function TokenHighlightOutline({
-  outline,
+  width,
+  height,
   color,
   strokeWidth,
   glowBlur,
+  cornerRadius = Math.min(width, height) * 0.08,
   ...shapeProps
 }: TokenHighlightOutlineProps) {
-  const appearance: Konva.ShapeConfig = {
-    stroke: color,
-    strokeWidth,
-    fillEnabled: false,
-    listening: false,
-    ...(glowBlur
-      ? {
-          shadowColor: color,
-          shadowBlur: glowBlur,
-          shadowOpacity: 0.85,
-          shadowForStrokeEnabled: true,
-        }
-      : {}),
-  };
-
-  switch (outline.type) {
-    case "rect":
-      return (
-        <Rect
-          {...appearance}
-          {...shapeProps}
-          {...outline}
-          cornerRadius={Math.min(outline.width, outline.height) * 0.08}
-        />
-      );
-    case "circle":
-      return <Circle {...appearance} {...shapeProps} {...outline} />;
-    default:
-      return (
-        <Line
-          {...appearance}
-          {...shapeProps}
-          points={outline.points}
-          closed
-          tension={outline.points.length < 200 ? 0 : 0.33}
-        />
-      );
-  }
+  return (
+    <Rect
+      x={0}
+      y={0}
+      width={width}
+      height={height}
+      cornerRadius={cornerRadius}
+      stroke={color}
+      strokeWidth={strokeWidth}
+      fillEnabled={false}
+      listening={false}
+      {...(glowBlur
+        ? {
+            shadowColor: color,
+            shadowBlur: glowBlur,
+            shadowOpacity: 0.85,
+            shadowForStrokeEnabled: true,
+          }
+        : {})}
+      {...shapeProps}
+    />
+  );
 }
 
 export default TokenHighlightOutline;

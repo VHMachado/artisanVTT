@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { forwardRef, useRef, useState } from "react";
 import { Box, SxProp } from "theme-ui";
 
 import colors, { colorOptions, Color } from "../../../helpers/colors";
-import MapMenu from "../../map/MapMenu";
+import Popover from "../../Popover";
 
 type ColorControlProps = {
   color: Color;
@@ -16,13 +16,6 @@ type SwatchProps = {
   onClick?: React.MouseEventHandler<HTMLDivElement>;
 } & SxProp;
 
-type PaletteAnchor = {
-  left: string;
-  top: string;
-  style: React.CSSProperties;
-  excludeNode: HTMLDivElement;
-};
-
 const gridSx: SxProp["sx"] = {
   width: "104px",
   display: "flex",
@@ -30,24 +23,17 @@ const gridSx: SxProp["sx"] = {
   justifyContent: "space-between",
 };
 
-function Swatch({ color, selected, onClick, sx }: SwatchProps) {
+const Swatch = forwardRef<HTMLDivElement, SwatchProps>(function Swatch(
+  { color, selected, onClick, sx },
+  ref
+) {
   const baseSx = { borderRadius: "50%", transform: "scale(0.75)", backgroundColor: colors[color], cursor: "pointer" };
   return (
-    <Box aria-label={`Brush Color ${color}`} onClick={onClick} sx={{ ...baseSx, ...sx }}>
+    <Box ref={ref} aria-label={`Brush Color ${color}`} onClick={onClick} sx={{ ...baseSx, ...sx }}>
       {selected ? <Box sx={{ width: "100%", height: "100%", border: "2px solid white", position: "absolute", top: 0, borderRadius: "50%" }} /> : null}
     </Box>
   );
-}
-
-function anchorFor(control: HTMLDivElement): PaletteAnchor {
-  const { left, width, bottom } = control.getBoundingClientRect();
-  return {
-    left: `${left + width / 2}px`,
-    top: `${bottom + 16}px`,
-    style: { transform: "translateX(-50%)" },
-    excludeNode: control,
-  };
-}
+});
 
 function Palette({ active, excluded, onChoose }: { active: Color; excluded: Color[]; onChoose: (color: Color) => void }) {
   return (
@@ -59,20 +45,44 @@ function Palette({ active, excluded, onChoose }: { active: Color; excluded: Colo
   );
 }
 
+/**
+ * The laser/pointer colour swatch plus its palette.
+ *
+ * The palette opens to the LEFT, through the shared `Popover` primitive,
+ * because this control only ever lives in the vertical rail on the right
+ * (MapControls' inline tool-settings strip, the same place the
+ * mouse-binding pickers already use `side="left"`). It used to anchor
+ * itself 16px BELOW the swatch with no viewport clamping at all, so with
+ * the rail scrolled down the palette ran off the bottom edge and was
+ * cropped. `Popover` does the edge collision for us.
+ */
 function ColorControl({ color, onColorChange, exclude }: ColorControlProps) {
-  const [anchor, setAnchor] = useState<PaletteAnchor | null>(null);
-  const closePalette = () => setAnchor(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const chooseColor = (choice: Color) => {
     onColorChange(choice);
-    closePalette();
+    setIsOpen(false);
   };
 
   return (
     <>
-      <Swatch color={color} selected onClick={(event) => setAnchor(anchor ? null : anchorFor(event.currentTarget))} sx={{ width: "24px", height: "24px" }} />
-      <MapMenu isOpen={anchor !== null} onRequestClose={closePalette} {...(anchor || {})}>
-        <Palette active={color} excluded={exclude} onChoose={chooseColor} />
-      </MapMenu>
+      <Swatch
+        ref={anchorRef}
+        color={color}
+        selected
+        onClick={() => setIsOpen((open) => !open)}
+        sx={{ width: "24px", height: "24px" }}
+      />
+      {isOpen && (
+        <Popover
+          anchorRef={anchorRef}
+          onRequestClose={() => setIsOpen(false)}
+          side="left"
+          variant="glass"
+        >
+          <Palette active={color} excluded={exclude} onChoose={chooseColor} />
+        </Popover>
+      )}
     </>
   );
 }

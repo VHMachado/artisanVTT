@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 
-import { assetObjectURL } from "../helpers/assetUpload";
+import { brokerAssetObjectURL } from "../helpers/brokerAssetCache";
 import { useAccount } from "../contexts/AccountContext";
 
 /**
  * Object URL for either a locally-picked `File` (not yet uploaded) or an
- * already-uploaded broker asset (fetched authenticated, same treatment as
- * CharacterPortrait) — the caller passes only one of the two. Revokes the
- * previous URL on every change and on unmount. Shared by
- * MonsterFormModal's portrait/token-variant thumbnails and
- * TokenVariantMenu's carousel thumbnails so the fetch-and-revoke dance
- * isn't repeated three times.
+ * already-uploaded broker asset (fetched authenticated, then kept
+ * on-device — see helpers/brokerAssetCache.ts, which is what makes these
+ * images survive the broker being unreachable). The caller passes only
+ * one of the two. Revokes the previous URL on every change and on
+ * unmount.
+ *
+ * The single resolver for every broker-hosted image in the UI: Mesa
+ * banners (TableCard), Personagem portraits (CharacterPortrait), and the
+ * monster portrait/token-variant thumbnails.
  */
 export function useAssetPreviewURL(
   assetId?: string,
@@ -27,7 +30,7 @@ export function useAssetPreviewURL(
       objectUrl = URL.createObjectURL(file);
       setUrl(objectUrl);
     } else if (assetId && session) {
-      assetObjectURL(session, assetId).then(
+      brokerAssetObjectURL(session, assetId).then(
         (loaded) => {
           if (!cancelled) {
             objectUrl = loaded;

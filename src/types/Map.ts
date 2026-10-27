@@ -27,6 +27,13 @@ export type BaseMap = {
   owner: string,
   name: string,
   id: string,
+  /** The Mesa this map was imported into, scoping it out of every other
+   * Mesa's picker (helpers/mapImport.ts's createMapFromFile stamps it;
+   * SelectMapModal.tsx filters by it). Absent on every map imported
+   * before this field existed — those stay visible from any Mesa rather
+   * than disappearing, per the same "absent means legacy/compatible"
+   * convention used elsewhere in this database (see PLAN.md). */
+  tableId?: string,
 };
 export type DefaultMap = BaseMap & { key: string, type: "default" };
 export type FileMapResolutions = {

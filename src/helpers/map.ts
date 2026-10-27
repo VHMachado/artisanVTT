@@ -1,1 +1,1 @@
-export { createMapFromFile, getMapPreviewAsset } from "./mapImport";
+export { createMapFromFile, filterMapsForTable, getMapPreviewAsset } from "./mapImport";

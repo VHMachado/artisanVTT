@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 
 	"github.com/wailsapp/wails/v2"
@@ -107,6 +108,63 @@ func (a *App) GetSpectatorSession() string {
 		return ""
 	}
 	return string(decoded)
+}
+
+// wirelessDisplayPickerCommand builds the command OpenWirelessDisplayPicker
+// runs, or an error for any goos the picker isn't wired up for — split out
+// from the bound method so a test can exercise the platform gate and the
+// exact args without actually spawning a child process (see main_test.go).
+//
+// Windows: `ms-settings-connectabledevices:devicediscovery` is the
+// immersive URI for Settings' "Connect to a wireless display" page — the
+// same one Win+K opens — and explorer.exe is how that URI scheme gets
+// resolved from a plain child process (ShellExecute-style launch), the
+// same trick long-standing AutoHotkey/VBScript community scripts for this
+// exact panel use.
+//
+// Linux has no OS-level equivalent of that panel to shell out to (Plasma
+// ships none; even GNOME's own Wi-Fi quick settings don't have one) — the
+// de facto tool is GNOME Network Displays (gnome-network-displays), a
+// standalone GTK app that discovers Miracast/Chromecast receivers over
+// Wi-Fi Direct and streams via the compositor's screencast portal. It
+// was AUR-only on Arch, and its dependency chain needed a
+// gstreamer/gst-plugins-base-libs version newer than what a stale Arch
+// install had pinned (gst-libav, gst-plugin-qml6) — fixed by a full
+// `pacman -Syu` followed by building gnome-network-displays from its
+// PKGBUILD with makepkg (no AUR helper installed) and enabling
+// avahi-daemon for mDNS discovery.
+//
+// The binary takes no arguments and opens its own GTK picker window —
+// same shape as explorer.exe's URI launch above, just a different
+// program. Needs to run inside the user's own graphical session (DISPLAY/
+// WAYLAND_DISPLAY in its environment) since it's a GUI app, not a
+// headless daemon — exec.Command inherits this process's environment by
+// default, which is already the Wails app's own graphical session.
+func wirelessDisplayPickerCommand(goos string) (*exec.Cmd, error) {
+	switch goos {
+	case "windows":
+		return exec.Command("explorer.exe", "ms-settings-connectabledevices:devicediscovery"), nil
+	case "linux":
+		return exec.Command("gnome-network-displays"), nil
+	default:
+		return nil, errors.New("wireless display casting is not available on this platform")
+	}
+}
+
+// OpenWirelessDisplayPicker opens the OS's native Miracast/wireless-display
+// device picker so the user can project this PC's screen (e.g. the
+// Espectador window, after OpenSpectatorWindow puts it on screen) to a
+// receiver on the local network — a TV, wireless HDMI dongle, or any
+// other Miracast-capable target, Chromecast included where it supports
+// Miracast. This is OS-level screen mirroring, not a per-window/per-tab
+// cast: once the user picks a receiver in the picker, the OS/tool
+// projects the display, not a specific app window.
+func (a *App) OpenWirelessDisplayPicker() error {
+	cmd, err := wirelessDisplayPickerCommand(goruntime.GOOS)
+	if err != nil {
+		return err
+	}
+	return cmd.Start()
 }
 
 // localMonsterArtRoot resolves (and creates, if missing) the user's local

@@ -59,18 +59,6 @@ func TestAccountsSelfCheck(t *testing.T) {
 		t.Fatalf("token should be invalid after logout, got user=%q", u)
 	}
 
-	// Two accounts never share a backup file.
-	if _, err := a.Register("other", "correct horse", "Other Player"); err != nil {
-		t.Fatalf("register other: %v", err)
-	}
-	if a.BackupPath("gamemaster") == a.BackupPath("other") {
-		t.Fatal("backup paths must differ between accounts")
-	}
-	// Backups stay inside the data directory whatever the username looks like.
-	if !strings.HasPrefix(a.BackupPath("../../etc/passwd"), filepath.Join(dir, "backups")) {
-		t.Fatal("backup path must stay inside the data dir even for a malicious username")
-	}
-
 	// Credentials survive a restart.
 	reloaded := New(dir)
 	t.Cleanup(func() { reloaded.Close() })

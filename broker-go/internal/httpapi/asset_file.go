@@ -7,7 +7,7 @@ import (
 
 // writeAssetFile writes data to path atomically (temp file + rename),
 // creating the sharded parent directory (see tables.Store.AssetPath) if
-// needed. Mirrors the temp+rename pattern account.go's backup upload uses.
+// needed.
 func writeAssetFile(path string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err

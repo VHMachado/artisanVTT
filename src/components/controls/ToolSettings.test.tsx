@@ -31,6 +31,12 @@ vi.mock("../RadioIconButton", () => ({
   ),
 }));
 
+vi.mock("../Popover", () => ({
+  default: ({ children }: { children: React.ReactNode }) => (
+    <div data-popover="open">{children}</div>
+  ),
+}));
+
 vi.mock("../map/MapMenu", () => ({
   default: ({
     children,
@@ -126,7 +132,7 @@ describe("tool settings", () => {
     act(() => {
       (container.querySelector('[aria-label="Brush Color blue"]') as HTMLElement).click();
     });
-    expect(container.querySelector("[data-map-menu='open']")).not.toBeNull();
+    expect(container.querySelector("[data-popover='open']")).not.toBeNull();
     expect(container.querySelector('[aria-label="Brush Color black"]')).toBeNull();
     expect(container.querySelector('[aria-label="Brush Color primary"]')).toBeNull();
 
@@ -134,7 +140,7 @@ describe("tool settings", () => {
       (container.querySelector('[aria-label="Brush Color yellow"]') as HTMLElement).click();
     });
     expect(onColorChange).toHaveBeenCalledWith("yellow");
-    expect(container.querySelector("[data-map-menu='open']")).toBeNull();
+    expect(container.querySelector("[data-popover='open']")).toBeNull();
   });
 
   it("keeps the pointer palette exclusions and only erases after confirmation", () => {

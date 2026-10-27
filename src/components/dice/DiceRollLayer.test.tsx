@@ -51,14 +51,20 @@ vi.mock("../../dice/diceTray/DiceArena", () => ({
     dispose = vi.fn();
   },
 }));
-vi.mock("../../dice/Dice", () => ({ default: { roll: vi.fn() } }));
+vi.mock("../../dice/Dice", () => ({
+  default: { roll: vi.fn() },
+  physicsInstanceOf: (instance: unknown) => instance,
+}));
 vi.mock("../../dice", () => ({
   dice: [
     {
       key: "test",
       class: {
         load: vi.fn(() => Promise.resolve()),
-        createInstance: vi.fn(() => ({ physicsImpostor: undefined })),
+        createInstance: vi.fn(() => ({
+          physicsImpostor: undefined,
+          getChildTransformNodes: () => [],
+        })),
       },
     },
   ],
@@ -99,8 +105,10 @@ describe("DiceRollLayer", () => {
             clearToken={0}
             request={request}
             onDiceRollsChange={vi.fn()}
+            onRollDisplay={vi.fn()}
             onRollComplete={onRollComplete}
             onLoadError={vi.fn()}
+            forceClearToken={0}
           />
         </MapStageProvider>,
         container
@@ -124,8 +132,10 @@ describe("DiceRollLayer", () => {
             clearToken={0}
             request={null}
             onDiceRollsChange={vi.fn()}
+            onRollDisplay={vi.fn()}
             onRollComplete={onRollComplete}
             onLoadError={vi.fn()}
+            forceClearToken={0}
           />
         </MapStageProvider>,
         container
@@ -141,8 +151,10 @@ describe("DiceRollLayer", () => {
             clearToken={1}
             request={null}
             onDiceRollsChange={vi.fn()}
+            onRollDisplay={vi.fn()}
             onRollComplete={onRollComplete}
             onLoadError={vi.fn()}
+            forceClearToken={0}
           />
         </MapStageProvider>,
         container
@@ -178,8 +190,10 @@ describe("DiceRollLayer", () => {
             clearToken={0}
             request={request}
             onDiceRollsChange={vi.fn()}
+            onRollDisplay={vi.fn()}
             onRollComplete={onRollComplete}
             onLoadError={vi.fn()}
+            forceClearToken={0}
           />
         </MapStageProvider>,
         container
@@ -200,8 +214,10 @@ describe("DiceRollLayer", () => {
             clearToken={1}
             request={request}
             onDiceRollsChange={vi.fn()}
+            onRollDisplay={vi.fn()}
             onRollComplete={onRollComplete}
             onLoadError={vi.fn()}
+            forceClearToken={0}
           />
         </MapStageProvider>,
         container
@@ -245,8 +261,10 @@ describe("DiceRollLayer", () => {
             clearToken={0}
             request={firstRequest}
             onDiceRollsChange={vi.fn()}
+            onRollDisplay={vi.fn()}
             onRollComplete={onRollComplete}
             onLoadError={vi.fn()}
+            forceClearToken={0}
           />
         </MapStageProvider>,
         container
@@ -269,8 +287,10 @@ describe("DiceRollLayer", () => {
           clearToken={0}
           request={nextRequest}
           onDiceRollsChange={vi.fn()}
+          onRollDisplay={vi.fn()}
           onRollComplete={onRollComplete}
           onLoadError={vi.fn()}
+          forceClearToken={0}
         />
       </MapStageProvider>,
       container
@@ -306,8 +326,10 @@ describe("DiceRollLayer", () => {
             clearToken={0}
             request={{ counts: { d20: 1 }, publishResults: false, seed: 1 }}
             onDiceRollsChange={vi.fn()}
+            onRollDisplay={vi.fn()}
             onRollComplete={vi.fn()}
             onLoadError={vi.fn()}
+            forceClearToken={0}
           />
         </MapStageProvider>,
         container
@@ -324,6 +346,104 @@ describe("DiceRollLayer", () => {
 
     expect((container.firstElementChild as HTMLElement).style.transform).toBe("");
     expect(createEnvironment).not.toHaveBeenCalled();
+    ReactDOM.unmountComponentAtNode(container);
+    container.remove();
+  });
+
+  it("displays a remote (non-publishing) roll without touching player_state", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const onDiceRollsChange = vi.fn();
+    const onRollDisplay = vi.fn();
+
+    await act(async () => {
+      ReactDOM.render(
+        <MapStageProvider value={{ current: null }}>
+          <DiceRollLayer
+            clearToken={0}
+            request={{ counts: { d20: 1 }, publishResults: false, seed: 1 }}
+            onDiceRollsChange={onDiceRollsChange}
+            onRollDisplay={onRollDisplay}
+            onRollComplete={vi.fn()}
+            onLoadError={vi.fn()}
+            forceClearToken={0}
+          />
+        </MapStageProvider>,
+        container
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Uma rolagem RECEBIDA de outro jogador (publishResults: false) ainda
+    // precisa alimentar o cartão de resultado — só não pode tocar
+    // player_state.dice, que pertence exclusivamente a quem rolou.
+    expect(onRollDisplay).toHaveBeenCalledWith([{ type: "d20", roll: "unknown" }]);
+    expect(onDiceRollsChange).not.toHaveBeenCalled();
+
+    ReactDOM.unmountComponentAtNode(container);
+    container.remove();
+  });
+
+  it("forceClearToken clears an in-flight roll on the FIRST bump and completes it", async () => {
+    // Reproduz o bug relatado pelo usuário: clicar "Limpar" enquanto a
+    // rolagem ainda está assentando (antes de `update()` marcar todos os
+    // dados `asleep`) não disparava `clearDice()` com o `clearToken`
+    // soft — exigia um segundo clique depois que a física completasse a
+    // rolagem por conta própria. `forceClearToken` precisa limpar E
+    // completar a rolagem já no primeiro bump, sem depender de nenhum
+    // frame do render loop.
+    disposeDiceMeshes.mockClear();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const request = { counts: { d20: 1 }, publishResults: false, seed: 1 };
+    const onRollComplete = vi.fn();
+
+    await act(async () => {
+      ReactDOM.render(
+        <MapStageProvider value={{ current: null }}>
+          <DiceRollLayer
+            clearToken={0}
+            forceClearToken={0}
+            request={request}
+            onDiceRollsChange={vi.fn()}
+            onRollDisplay={vi.fn()}
+            onRollComplete={onRollComplete}
+            onLoadError={vi.fn()}
+          />
+        </MapStageProvider>,
+        container
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Nenhum frame do render loop rodou ainda — a rolagem está "em voo",
+    // nunca marcada `completedRequestRef`/`asleep`. Mesmo assim, UM
+    // bump de forceClearToken já precisa limpar e completar.
+    const clearCallsBeforeForceClear = disposeDiceMeshes.mock.calls.length;
+    await act(async () => {
+      ReactDOM.render(
+        <MapStageProvider value={{ current: null }}>
+          <DiceRollLayer
+            clearToken={0}
+            forceClearToken={1}
+            request={request}
+            onDiceRollsChange={vi.fn()}
+            onRollDisplay={vi.fn()}
+            onRollComplete={onRollComplete}
+            onLoadError={vi.fn()}
+          />
+        </MapStageProvider>,
+        container
+      );
+    });
+
+    expect(disposeDiceMeshes).toHaveBeenCalledTimes(clearCallsBeforeForceClear + 1);
+    expect(onRollComplete).toHaveBeenCalledWith(request);
+
     ReactDOM.unmountComponentAtNode(container);
     container.remove();
   });

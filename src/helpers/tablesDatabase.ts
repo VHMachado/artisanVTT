@@ -63,6 +63,16 @@ export function getTablesDatabase(): Dexie {
     db.version(3).stores({
       ruleOptions: "id, tableId, parentIndex",
     });
+    // On-device copy of the broker's content-addressed images (Mesa
+    // banners, Personagem portraits, monster art) — see
+    // helpers/brokerAssetCache.ts. It lives HERE rather than in
+    // ArtisanDB's `assets` table because the Home screen shows Mesa
+    // banners before any game is open, and ArtisanDB only has a provider
+    // (and therefore a handle) inside a Mesa. Keyed by the asset hash,
+    // which IS the content, so an entry can never go stale.
+    db.version(4).stores({
+      brokerAssets: "id",
+    });
   }
   return db;
 }

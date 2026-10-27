@@ -6,7 +6,6 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,7 +19,7 @@ func newTestServer(t *testing.T) (*httptest.Server, string) {
 	dir := t.TempDir()
 	accts := accounts.New(dir)
 	t.Cleanup(func() { accts.Close() })
-	cfg := &config.Config{MaxAccounts: 4, MaxBackupBytes: 2 << 20}
+	cfg := &config.Config{MaxAccounts: 4}
 	mux := http.NewServeMux()
 	RegisterAccountRoutes(mux, accts, cfg)
 	srv := httptest.NewServer(mux)
@@ -86,73 +85,20 @@ func TestAccountRoutesSelfCheck(t *testing.T) {
 	}
 	auth := "Bearer " + loginBody.Token
 
-	// Backups require a valid token.
-	req, _ := http.NewRequest(http.MethodGet, base+"/backup", nil)
-	resp, _ := http.DefaultClient.Do(req)
-	if resp.StatusCode != 401 {
-		t.Fatalf("backup without auth should 401, got %d", resp.StatusCode)
-	}
-	req, _ = http.NewRequest(http.MethodGet, base+"/backup", nil)
-	req.Header.Set("Authorization", "Bearer fake")
-	resp, _ = http.DefaultClient.Do(req)
-	if resp.StatusCode != 401 {
-		t.Fatalf("backup with fake auth should 401, got %d", resp.StatusCode)
-	}
-
-	// Nothing saved yet.
-	req, _ = http.NewRequest(http.MethodGet, base+"/backup", nil)
-	req.Header.Set("Authorization", auth)
-	resp, _ = http.DefaultClient.Do(req)
-	if resp.StatusCode != 404 {
-		t.Fatalf("no backup yet should 404, got %d", resp.StatusCode)
-	}
-
-	// Round trip a backup body unchanged.
-	payload := []byte("owlbear backup contents \x00\xff binary")
-	req, _ = http.NewRequest(http.MethodPut, base+"/backup", bytes.NewReader(payload))
-	req.Header.Set("Authorization", auth)
-	req.Header.Set("Content-Type", "application/octet-stream")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatalf("upload backup: %v", err)
-	}
-	if resp.StatusCode != 200 {
-		t.Fatalf("upload backup should 200, got %d", resp.StatusCode)
-	}
-
-	req, _ = http.NewRequest(http.MethodGet, base+"/backup", nil)
-	req.Header.Set("Authorization", auth)
-	resp, _ = http.DefaultClient.Do(req)
-	if resp.StatusCode != 200 {
-		t.Fatalf("download backup should 200, got %d", resp.StatusCode)
-	}
-	roundTripped, _ := io.ReadAll(resp.Body)
-	if !bytes.Equal(roundTripped, payload) {
-		t.Fatal("backup must round trip byte for byte")
-	}
-
-	// A second account cannot see the first account's backup.
+	// A second account can register and log in independently.
 	postJSON(t, base+"/register", map[string]string{"username": "other", "password": "correct horse", "displayName": "Other Player"})
 	otherLoginResp := postJSON(t, base+"/login", map[string]string{"username": "other", "password": "correct horse"})
 	var otherLoginBody struct {
 		Token string `json:"token"`
 	}
 	json.NewDecoder(otherLoginResp.Body).Decode(&otherLoginBody)
-	req, _ = http.NewRequest(http.MethodGet, base+"/backup", nil)
-	req.Header.Set("Authorization", "Bearer "+otherLoginBody.Token)
-	resp, _ = http.DefaultClient.Do(req)
-	if resp.StatusCode != 404 {
-		t.Fatalf("backups must not leak between accounts, got %d", resp.StatusCode)
+	if otherLoginBody.Token == "" {
+		t.Fatal("second account should also receive a token")
 	}
 
-	// Logging out revokes access.
-	req, _ = http.NewRequest(http.MethodPost, base+"/logout", nil)
+	// Logging out revokes the session: the broker's /sync (tested in
+	// tables_test.go) would now reject this token too.
+	req, _ := http.NewRequest(http.MethodPost, base+"/logout", nil)
 	req.Header.Set("Authorization", auth)
 	http.DefaultClient.Do(req)
-	req, _ = http.NewRequest(http.MethodGet, base+"/backup", nil)
-	req.Header.Set("Authorization", auth)
-	resp, _ = http.DefaultClient.Do(req)
-	if resp.StatusCode != 401 {
-		t.Fatalf("backup after logout should 401, got %d", resp.StatusCode)
-	}
 }

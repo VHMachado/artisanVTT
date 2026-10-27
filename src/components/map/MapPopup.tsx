@@ -86,9 +86,22 @@ function MapMenu({
     };
   }, [modalContentNode, excludeNode, onRequestClose]);
 
-  function handleModalContent(node: HTMLDivElement) {
+  /**
+   * `react-modal` treats `contentRef` as a plain React ref callback: it
+   * fires with the content div on mount AND with `null` on unmount (every
+   * close). `onModalContent` consumers measure the node they are handed
+   * (SelectionMenu clamps itself to the map, TokenQuickMenu focuses its
+   * input), so letting that detach call through means dereferencing null
+   * inside React's commit phase — which is not catchable by the caller and
+   * tears the whole tree down to a blank screen. Only ever forward a real
+   * node; the local `modalContentNode` still tracks the null so the
+   * click-outside listener stops matching a detached element.
+   */
+  function handleModalContent(node: HTMLDivElement | null) {
     setModalContentNode(node);
-    onModalContent(node);
+    if (node) {
+      onModalContent(node);
+    }
   }
 
   const { theme } = useThemeUI();

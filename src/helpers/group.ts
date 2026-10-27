@@ -9,5 +9,6 @@ export {
   moveGroupsInto,
   removeGroupsItems,
   renameGroup,
+  restoreHiddenGroups,
   ungroup,
 } from "./groupOperations";

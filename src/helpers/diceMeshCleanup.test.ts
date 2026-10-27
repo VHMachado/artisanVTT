@@ -36,4 +36,25 @@ describe("disposeDiceMeshes", () => {
     expect(removeShadowCaster).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
+
+  test("also disposes the low-poly physics proxy a rendered instance was parented to", () => {
+    const physicsInstance = { dispose: vi.fn() } as any;
+    const main = {
+      dispose: vi.fn(),
+      metadata: { physicsInstance },
+    } as any;
+    const removeShadowCaster = vi.fn();
+
+    disposeDiceMeshes(
+      [{ type: "d20", instance: main, asleep: false }],
+      { removeShadowCaster }
+    );
+
+    expect(main.dispose).toHaveBeenCalledTimes(1);
+    expect(physicsInstance.dispose).toHaveBeenCalledTimes(1);
+    // The proxy is invisible and was never registered as a shadow
+    // caster — only the rendered instance was.
+    expect(removeShadowCaster).toHaveBeenCalledTimes(1);
+    expect(removeShadowCaster).toHaveBeenCalledWith(main);
+  });
 });

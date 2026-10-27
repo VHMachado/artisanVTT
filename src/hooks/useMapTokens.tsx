@@ -189,9 +189,13 @@ function useMapTokens(
   /**
    * Pedido do usuário (2026-10-12): shift+click multi-seleção — ver
    * useMapSelection.tsx. `onTokenShiftClick` toggla o token na seleção;
-   * `shiftSelectedIds` é lido só para destacar visualmente os tokens já
-   * na seleção (mesmo `selected` que já existia para o TokenMenu);
-   * `shiftSelectEnabled` espelha useMapSelection's `shiftSelectEnabled`.
+   * `activeSelectionIds` é lido para destacar visualmente os tokens já
+   * na seleção (mesmo `selected` que já existia para o TokenMenu) e,
+   * desde 2026-10-26, TAMBÉM para liberar `draggable` em qualquer token
+   * dela — cobre tanto um grupo por shift+click quanto um grupo
+   * resolvido por marquee (MapScreen.tsx's `activeSelectionIds`, só
+   * preenchido quando `selection.resolved`); `shiftSelectEnabled`
+   * espelha useMapSelection's `shiftSelectEnabled`.
    */
   onTokenShiftClick: (tokenId: string) => void,
   /**
@@ -203,7 +207,7 @@ function useMapTokens(
    * shift.
    */
   onTokenClick: (tokenId: string) => void,
-  shiftSelectedIds: Set<string>,
+  activeSelectionIds: Set<string>,
   shiftSelectEnabled: boolean,
   /**
    * Pedido do usuário (2026-10-12, quarta rodada): id do token cuja
@@ -327,9 +331,15 @@ function useMapTokens(
           // QUALQUER botão (um "move" só no direito não arrastaria o
           // token de qualquer forma, e checar `isToolBound` aqui
           // ligaria o arraste nativo também quando só o direito tivesse
-          // "move", confundindo o usuário).
+          // "move", confundindo o usuário). Bug fix (2026-10-26): também
+          // liberado quando o token já pertence à seleção ATIVA
+          // (shift+click OU marquee resolvida, ver
+          // activeSelectionIds/types/Select.ts's `resolved`) — sem
+          // isso, com "Selecionar" no botão esquerdo, nenhum token de
+          // um grupo marcado por marquee podia ser arrastado clicando
+          // nele direto, só pela antiga shape de contorno.
           draggable={
-            bindings.left === "move" &&
+            (bindings.left === "move" || activeSelectionIds.has(tokenState.id)) &&
             !(tokenState.id in disabledTokens) &&
             !tokenState.locked
           }
@@ -360,14 +370,14 @@ function useMapTokens(
           selected={
             (tokenMenuController.isOpen &&
               tokenMenuController.options?.tokenStateId === tokenState.id) ||
-            shiftSelectedIds.has(tokenState.id)
+            activeSelectionIds.has(tokenState.id)
           }
           onTokenShiftClick={onTokenShiftClick}
           onTokenClick={onTokenClick}
           shiftSelectEnabled={shiftSelectEnabled}
           groupSelectedIds={
-            shiftSelectedIds.has(tokenState.id) && shiftSelectedIds.size > 1
-              ? Array.from(shiftSelectedIds).filter((id) => id !== tokenState.id)
+            activeSelectionIds.has(tokenState.id) && activeSelectionIds.size > 1
+              ? Array.from(activeSelectionIds).filter((id) => id !== tokenState.id)
               : []
           }
           isActiveTurn={activeTokenId === tokenState.id}

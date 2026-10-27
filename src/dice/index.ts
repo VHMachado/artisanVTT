@@ -33,5 +33,6 @@ export function resetDiceCaches() {
   for (const diceClass of Object.values(diceClasses)) {
     (diceClass as unknown as { material?: unknown }).material = undefined;
     (diceClass as unknown as { meshes?: unknown }).meshes = undefined;
+    (diceClass as unknown as { hulls?: unknown }).hulls = undefined;
   }
 }

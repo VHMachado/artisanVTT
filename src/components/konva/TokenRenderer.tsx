@@ -720,14 +720,16 @@ function Token({
                   independente de para onde o token está virado). */}
               {selected ? (
                 <TokenHighlightOutline
-                  outline={getScaledOutline(tokenState, tokenWidth, tokenHeight)}
+                  width={tokenWidth}
+                  height={tokenHeight}
                   color={theme.colors.secondary}
                   strokeWidth={Math.max(2, tokenWidth * 0.02)}
                 />
               ) : null}
               {isActiveTurn ? (
                 <TokenHighlightOutline
-                  outline={getScaledOutline(tokenState, tokenWidth, tokenHeight)}
+                  width={tokenWidth}
+                  height={tokenHeight}
                   color={theme.colors.primary}
                   strokeWidth={Math.max(2.5, tokenWidth * 0.025)}
                   glowBlur={tokenWidth * 0.2}

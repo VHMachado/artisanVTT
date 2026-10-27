@@ -206,9 +206,14 @@ function NpcRoster({ tableId, mapId, onMapTokensStateCreate }: NpcRosterProps) {
             width: "100%",
             height: "100%",
             minHeight: 0,
-            // 8px, não 16px — mesmo motivo do CharacterRoster:
-            // tinha que bater com o inset horizontal do cabeçalho.
-            padding: "0 8px",
+            // Left 8px keeps matching the header's horizontal inset (see
+            // CharacterRoster.tsx's SimpleBar for the same note). Right
+            // trimmed to 2px, not 8px: stacked on Party.tsx's own 4px
+            // right padding it used to add up to a 24px dead strip after
+            // the card's right edge, which read as "where does the
+            // sidebar actually end?" since the panel has no visible
+            // border — see Party.tsx's note by MapBackButton/ResizeHandle.
+            padding: "0 2px 0 8px",
           }}
         >
           <Box sx={{ minHeight: "100%" }}>

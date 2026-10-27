@@ -58,6 +58,8 @@ const EMPTY_LIBRARY: LoadedLibrary = {
   tokenGroups: [],
 };
 
+const defaultFilter = () => true;
+
 /** Opens `databaseName` read-only, pulls every map/token/group row this
  * `filter` lets through, and closes it again — called once per time the
  * picker is opened on a (possibly freshly-populated) staging database. */
@@ -232,7 +234,7 @@ export default function SelectDataModal({
   confirmText = "Confirmar",
   label = "Selecionar dados",
   databaseName = "ArtisanDB",
-  filter = () => true,
+  filter = defaultFilter,
 }: SelectDataProps) {
   const [library, setLibrary] = useState<LoadedLibrary>(EMPTY_LIBRARY);
   const [mapsById, setMapsById] = useState<ById>({});

@@ -140,3 +140,29 @@ export function removeGroupsItems(groups: Group[], itemIds: string[]): Group[] {
     return items.length === 0 ? remaining : [...remaining, { ...group, items }];
   }, []);
 }
+
+/**
+ * Undoes `removeGroupsItems`' view-only filtering before a scoped edit is
+ * persisted: a Mesa-scoped picker (SelectMapModal.tsx) only ever shows
+ * `edited`, a tree already pruned of every hidden (other-Mesa) id via
+ * `removeGroupsItems`, so saving `edited` as-is would silently delete
+ * every top-level entry that belonged entirely to a hidden id. This
+ * reappends, unchanged, whatever top-level entry in `original` is made
+ * up ENTIRELY of hidden ids — a plain item, or a group whose every item
+ * is hidden. A group mixing hidden and visible ids (not reachable
+ * through normal use, since the picker can only ever drag together ids
+ * it can see) has its hidden items dropped rather than preserved, as
+ * there is no surviving position to put them back at.
+ */
+export function restoreHiddenGroups(
+  original: Group[],
+  edited: Group[],
+  hiddenIds: string[]
+): Group[] {
+  const hidden = new Set(hiddenIds);
+  const isHidden = (item: GroupItem) => hidden.has(item.id);
+  const survivors = original.filter((group) =>
+    group.type === "item" ? isHidden(group) : group.items.every(isHidden)
+  );
+  return [...edited, ...cloneGroups(survivors)];
+}

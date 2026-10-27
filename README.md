@@ -32,26 +32,23 @@ cd broker-go
 go run .
 ```
 
-## Game Master Accounts
+## Accounts and sync
 
-Every map, token, fog shape and image lives in the browser's own IndexedDB
-storage, so a game set up on one computer can't be opened on another. An
-optional account lets a Game Master carry that data between machines.
+Every player and GM creates an account on first launch (see the login
+screen before the Home screen) — there's no separate "Game Master Account"
+concept anymore, and no per-game password. Signing in is the identity that
+follows you between devices: maps, tokens, characters and fog for a table
+are authoritative on the broker, not just the browser that created them.
+Log in with the same account on any computer that can reach the broker and
+your tables are already there — there is nothing to export, save or load
+by hand. Whoever reaches the broker (i.e. is on the same tailnet/LAN as the
+`DATA_DIR`/compose deploy) can see and join every table; access control is
+the network boundary, not a per-table password.
 
-Open **Settings → Game Master Account**, create an account, then:
-
-- **Save to Server** uploads your whole library (maps, tokens, images, fog and
-  token positions) to the server.
-- **Load from Server** on another computer or browser downloads it and reloads
-  the page.
-
-This is a manual snapshot, not live sync. Save when you finish preparing a game
-and load before you play elsewhere. If you save from two machines the last save
-wins, so treat one machine as the source of truth per session.
-
-Player sessions work the same way: players still join with the room link and
-password and receive images relayed through the broker over the same
-WebSocket connection used for map/token sync (see "Networking" below).
+Player sessions work the same way: once logged in, players pick a table
+from the "Mesas" list and receive images relayed through the broker over
+the same WebSocket connection used for map/token sync (see "Networking"
+below).
 
 ### Sharing your view
 
@@ -86,17 +83,18 @@ or `VITE_BROKER_URL` to a full URL if the backend runs on another machine.
 | --- | --- | --- |
 | `VITE_BROKER_PORT` | `9420` | Backend port, on the same host as the page |
 | `VITE_BROKER_URL` | *(derived)* | Full backend URL, overrides the above |
-| `DATA_DIR` | `./data` | Where broker account credentials and backups are stored |
+| `DATA_DIR` | `./data` | Where broker account/table/character data (SQLite) is stored |
 | `MAX_ACCOUNTS` | `4` | Cap on registered accounts, `0` disables registration (this repo's broker deploy sets `20`, see `broker-go/docker-compose.yml`) |
-| `MAX_BACKUP_BYTES` | `2147483648` | Largest backup accepted, in bytes |
 
 Passwords are stored hashed with bcrypt and sessions use a random token that
-expires after 30 days. **Serve the backend over HTTPS.** Without TLS the Game
-Master's password is sent in the clear; put the backend behind a reverse
-proxy such as Caddy or nginx for a local setup.
+expires after 30 days. **Serve the backend over HTTPS.** Without TLS account
+passwords are sent in the clear; put the backend behind a reverse proxy such
+as Caddy or nginx for a local setup, or keep it on a private network (e.g. a
+Tailscale tailnet) if you can't put TLS in front of it.
 
-Back up the `DATA_DIR` directory, it is the only copy of the account data. When
-running with Docker Compose it is kept in the `gm-data` volume.
+Back up the `DATA_DIR` directory, it is the only copy of every account,
+table, character and asset. When running with Docker Compose it is kept in
+the `gm-data` volume.
 
 To run the broker self checks:
 

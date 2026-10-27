@@ -8,7 +8,12 @@ let clipboardText = "";
 const addToast = vi.fn();
 const mapImage = { width: () => 100, height: () => 100, getAbsoluteTransform: () => ({ copy: () => ({ point: (point: any) => point }) }) };
 
-vi.mock("../../contexts/KeyboardContext", () => ({ useKeyboard: () => undefined }));
+let keyDownHandler: ((event: KeyboardEvent) => void) | undefined;
+vi.mock("../../contexts/KeyboardContext", () => ({
+  useKeyboard: (onKeyDown: (event: KeyboardEvent) => void) => {
+    keyDownHandler = onKeyDown;
+  },
+}));
 vi.mock("../../contexts/MapStageContext", () => ({ useMapStage: () => ({ current: { findOne: () => mapImage } }) }));
 vi.mock("../../contexts/UserIdContext", () => ({ useUserId: () => "owner" }));
 vi.mock("../../helpers/shared", () => ({ clipboardSupported: () => Promise.resolve(clipboardAvailable) }));
@@ -16,7 +21,6 @@ vi.mock("../../helpers/konva", () => ({ getRelativePointerPosition: () => ({ x: 
 vi.mock("../../validators/MapState", () => ({ isMapState: () => true }));
 vi.mock("../../validators/Selection", () => ({ isSelection: () => true }));
 vi.mock("../../icons/CopyIcon", () => ({ default: () => <span /> }));
-vi.mock("../../icons/PasteIcon", () => ({ default: () => <span /> }));
 vi.mock("../../icons/TokenHideIcon", () => ({ default: () => <span /> }));
 vi.mock("../../icons/TokenLockIcon", () => ({ default: () => <span /> }));
 vi.mock("../../icons/TokenShowIcon", () => ({ default: () => <span /> }));
@@ -73,7 +77,6 @@ function mount(overrides: Partial<React.ComponentProps<typeof SelectionMenu>> = 
     selection,
     isOpen: true,
     active: true,
-    onRequestOpen: vi.fn(),
     onRequestClose: vi.fn(),
     onSelectionItemsCreate: vi.fn(),
     onSelectionItemsChange: vi.fn(),
@@ -84,6 +87,12 @@ function mount(overrides: Partial<React.ComponentProps<typeof SelectionMenu>> = 
     ReactDOM.render(<SelectionMenu {...props} />, root);
   });
   return { root, props };
+}
+
+/** Ctrl+V is the only paste affordance now that the click-spawned
+ * clipboard menu is gone. */
+function pressPaste() {
+  keyDownHandler?.({ key: "v", ctrlKey: true, metaKey: false, shiftKey: false } as KeyboardEvent);
 }
 
 describe("SelectionMenu", () => {
@@ -110,7 +119,7 @@ describe("SelectionMenu", () => {
       ReactDOM.render(<SelectionMenu {...props} selection={null} />, root);
     });
     await act(async () => {
-      (root.querySelector('[aria-label="Paste Items"]') as HTMLButtonElement).click();
+      pressPaste();
     });
 
     const pastedTokens = created.mock.calls[0][0];
@@ -130,10 +139,10 @@ describe("SelectionMenu", () => {
     vi.stubEnv("VITE_VERSION", "current-version");
     clipboardAvailable = true;
     clipboardText = JSON.stringify({ version: "old-version", data: mapState, selection });
-    const { root, props } = mount({ selection: null });
+    const { props } = mount({ selection: null });
 
     await act(async () => {
-      (root.querySelector('[aria-label="Paste Items"]') as HTMLButtonElement).click();
+      pressPaste();
     });
 
     expect(addToast).toHaveBeenCalledWith("Invalid data");

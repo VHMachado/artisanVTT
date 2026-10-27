@@ -21,15 +21,23 @@ class FakeEmitter {
   }
 }
 
+/** Mirrors just enough of Konva's `Stage` for these tests: `on`/`off`/a
+ * way to fire a registered listener, so a test can reproduce Konva's
+ * OWN native "click tap" firing independently of (and right after) the
+ * custom drag emitter above — see the 2026-10-26 regression test below. */
+class FakeStage extends FakeEmitter {
+  find() {
+    return [{ children: [token("token-a"), token("disabled-token")] }];
+  }
+  findOne() {
+    return { width: () => 100, height: () => 100 };
+  }
+}
+
 let emitter: FakeEmitter;
+let stage: FakeStage;
 let pointer = { x: 10, y: 20 };
 const token = (id: string) => ({ id: () => id, position: () => ({ x: 20, y: 30 }) });
-const stage = {
-  findOne: () => ({ width: () => 100, height: () => 100 }),
-  find: () => [{ children: [token("token-a"), token("disabled-token")] }],
-  on: vi.fn(),
-  off: vi.fn(),
-};
 
 vi.mock("../../contexts/GridContext", () => ({ useGridCellNormalizedSize: () => ({ x: 0.1, y: 0.1 }) }));
 vi.mock("../../contexts/MapInteractionContext", () => ({
@@ -69,8 +77,6 @@ afterEach(() => {
     });
     root.remove();
   }
-  stage.on.mockReset();
-  stage.off.mockReset();
 });
 
 function Harness({ type }: { type: "rectangle" | "path" }) {
@@ -97,6 +103,7 @@ function Harness({ type }: { type: "rectangle" | "path" }) {
 
 function mount(type: "rectangle" | "path") {
   emitter = new FakeEmitter();
+  stage = new FakeStage();
   pointer = { x: 10, y: 20 };
   const root = document.createElement("div");
   document.body.appendChild(root);
@@ -111,11 +118,19 @@ function selectionFrom(root: HTMLElement) {
   return JSON.parse(root.querySelector("output[data-selection]")?.getAttribute("data-selection") || "null");
 }
 
+/** A click event whose target is NOT the marching-ants overlay — the
+ * shape every stage click resolves to unless the pointer happens to be
+ * sitting exactly over that Konva node. */
+const clickOnBackground = { target: { id: () => "" } };
+
 describe("SelectTool marquee", () => {
   it("builds a rectangle marquee and excludes disabled tokens from its hit set", () => {
     const root = mount("rectangle");
 
     act(() => emitter.emit("dragStart", { tool: "select" }));
+    // Mid-drag (not yet resolved), the marching-ants overlay DOES
+    // render — only a finished, resolved selection hides it.
+    expect(root.querySelector("[data-selection-overlay]")).not.toBeNull();
     pointer = { x: 50, y: 60 };
     act(() => emitter.emit("drag", { tool: "select" }));
     act(() => emitter.emit("dragEnd", { tool: "select" }));
@@ -125,10 +140,19 @@ describe("SelectTool marquee", () => {
       type: "rectangle",
       items: [{ id: "token-a", type: "token" }],
       data: { x: 0.1, y: 0.2 },
+      // Bug fix (2026-10-26): a finished marquee selection is now
+      // `resolved`, same as a shift+click selection — so it drops the
+      // legacy marching-ants drag shape and switches to Token.tsx's
+      // per-token group-drag path (types/Select.ts's doc comment).
+      resolved: true,
     });
     expect(selection.data.width).toBeCloseTo(0.4);
     expect(selection.data.height).toBeCloseTo(0.4);
     expect(root.querySelector("output[data-selection]")).toHaveAttribute("data-menu-open", "true");
+    // The marching-ants overlay (mocked `components/konva/Selection`)
+    // must NOT render once the selection is resolved, or dragging a
+    // token inside it would fight the overlay's own drag handling.
+    expect(root.querySelector("[data-selection-overlay]")).toBeNull();
   });
 
   it("begins a path marquee with its normalized pointer position", () => {
@@ -143,5 +167,34 @@ describe("SelectTool marquee", () => {
       x: 0,
       y: 0,
     });
+  });
+
+  it("regression (2026-10-26): survives the native stage click Konva fires right after the drag that resolved it", () => {
+    // Bug report: "Tentei fazer uma seleção em massa... nenhum token foi
+    // selecionado". Konva's "click tap" listener on the stage is
+    // independent of this tool's own drag emitter and fires from the
+    // SAME pointerup that ends the marquee drag. Before the fix, that
+    // trailing click's target was never the (now unmounted) marching-ants
+    // overlay, so it fell into the "clicked elsewhere" branch and wiped
+    // the selection `end()` had just built, in the very same gesture.
+    const root = mount("rectangle");
+
+    act(() => emitter.emit("dragStart", { tool: "select" }));
+    pointer = { x: 50, y: 60 };
+    act(() => emitter.emit("drag", { tool: "select" }));
+    act(() => emitter.emit("dragEnd", { tool: "select" }));
+
+    expect(selectionFrom(root)).toMatchObject({ items: [{ id: "token-a" }], resolved: true });
+
+    act(() => stage.emit("click tap", clickOnBackground));
+
+    expect(selectionFrom(root)).toMatchObject({ items: [{ id: "token-a" }], resolved: true });
+    expect(root.querySelector("output[data-selection]")).toHaveAttribute("data-menu-open", "true");
+
+    // A SECOND, later click (a genuinely new one) must still clear it —
+    // the suppression is only for that one trailing click, not forever.
+    act(() => stage.emit("click tap", clickOnBackground));
+    expect(selectionFrom(root)).toBeNull();
+    expect(root.querySelector("output[data-selection]")).toHaveAttribute("data-menu-open", "false");
   });
 });

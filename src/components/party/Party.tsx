@@ -157,8 +157,20 @@ function Party({ tableId }: PartyProps) {
           width: `${partyWidth}px`,
           minWidth: `${partyWidth}px`,
           pointerEvents: "all",
+          // Right padding trimmed to 4px, not the 16px p={3} used on every
+          // other edge: the user found a dead gap between the roster
+          // cards' right edge and the sidebar's actual edge (where
+          // MapBackButton/ResizeHandle sit, both pinned to `partyWidth` —
+          // see MapBackButton.tsx) confusing, since this panel has no
+          // visible border of its own to judge that edge by otherwise.
+          // Left/top/bottom stay at 16px: the left inset still has to
+          // match the header's own px={2}=8px-over-this-16px inset (see
+          // CharacterRoster.tsx/NpcRoster.tsx's SimpleBar comment).
+          pt: 3,
+          pr: "4px",
+          pb: 3,
+          pl: 3,
         }}
-        p={3}
       >
         {/* The connectivity dot sits above the tabs and
             shows the same label Home's own dot shows.

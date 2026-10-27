@@ -96,7 +96,7 @@ async function withImage(file: File, callback: (image: HTMLImageElement, buffer:
   });
 }
 
-export function createMapFromFile(file: File, userId: string): Promise<ImportedMap> {
+export function createMapFromFile(file: File, userId: string, tableId?: string): Promise<ImportedMap> {
   return withImage(file, async (image, buffer) => {
     const { name, gridSize, gridDetection } = nameAndGrid(image, file.name || "Unknown Map");
     const generated = await buildResolutionAssets(image, gridSize, file.type, userId);
@@ -138,7 +138,16 @@ export function createMapFromFile(file: File, userId: string): Promise<ImportedM
       showGrid: false,
       snapToGrid: true,
       quality: "original",
+      tableId,
     };
     return { map, assets };
   });
+}
+
+/** Keeps a map visible in a Mesa's picker when it was imported INTO that
+ * Mesa (`tableId` matches) or predates per-Mesa scoping altogether
+ * (`tableId` absent) — see `BaseMap.tableId`'s doc comment for why
+ * untagged maps are never hidden. */
+export function filterMapsForTable(maps: Map[], tableId: string): Map[] {
+  return maps.filter((map) => !map.tableId || map.tableId === tableId);
 }

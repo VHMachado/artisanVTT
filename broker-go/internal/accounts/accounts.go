@@ -11,7 +11,6 @@ package accounts
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -68,7 +67,7 @@ type Accounts struct {
 // same as the rest of main.go's startup sequence (there is no recovery
 // path for "the data directory is unusable").
 func New(dataDir string) *Accounts {
-	if err := os.MkdirAll(filepath.Join(dataDir, "backups"), 0o755); err != nil {
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		panic(fmt.Sprintf("accounts: creating data dir: %v", err))
 	}
 	dbPath := filepath.Join(dataDir, "artisan.db")
@@ -267,13 +266,4 @@ func (a *Accounts) VerifyAccount(token string) (Account, bool, error) {
 func (a *Accounts) Logout(token string) error {
 	_, err := a.db.Exec(`DELETE FROM sessions WHERE token = ?`, token)
 	return err
-}
-
-// BackupPath is the path of the backup blob for an account. Usernames are
-// validated on registration, but hashed anyway so nothing a user types can
-// ever escape the backups directory.
-func (a *Accounts) BackupPath(username string) string {
-	sum := sha256.Sum256([]byte(username))
-	safe := hex.EncodeToString(sum[:])
-	return filepath.Join(a.dataDir, "backups", fmt.Sprintf("%s.owlbear", safe))
 }

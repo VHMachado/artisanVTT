@@ -68,8 +68,22 @@ export const useMapWidth = selectorHook("mapWidth");
 export const useMapHeight = selectorHook("mapHeight");
 export const useStageScale = selectorHook("stageScale");
 
+/**
+ * The stage zoom, settled for 200ms, for the handful of Konva overlays
+ * that size themselves against it (the ruler readout, the fog/select
+ * brush, the grid inset editor) and must not re-layout on every frame of
+ * a pinch.
+ *
+ * Falls back to the LIVE scale, not to 1, until the debounce has settled:
+ * `useDebounce` seeds its state as `undefined`, so a consumer that mounts
+ * mid-session (Ruler mounts fresh on every measure gesture) spent its
+ * first 200ms believing the zoom was 1:1. The ruler's label counter-scales
+ * by `1 / canvasScale`, so on a zoomed-in map it rendered enormous and
+ * then snapped back — reported as "a legenda fica enorme por um instante".
+ */
 export function useDebouncedStageScale() {
-  return useDebounce(useStageScale(), 200) || 1;
+  const stageScale = useStageScale();
+  return useDebounce(stageScale, 200) || stageScale || 1;
 }
 
 type MouseButtonEvent =

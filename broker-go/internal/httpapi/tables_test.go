@@ -25,7 +25,7 @@ func tableTestServer(t *testing.T) (baseURL string) {
 	t.Cleanup(func() { accts.Close() })
 	store := tables.New(dir)
 	t.Cleanup(func() { store.Close() })
-	cfg := &config.Config{MaxAccounts: 10, MaxBackupBytes: 2 << 20}
+	cfg := &config.Config{MaxAccounts: 10}
 
 	mux := http.NewServeMux()
 	RegisterAccountRoutes(mux, accts, cfg)

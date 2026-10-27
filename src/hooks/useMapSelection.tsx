@@ -65,7 +65,7 @@ function buildTokenSelection(tokenIds: string[], mapState: MapState): Selection 
     x: 0,
     y: 0,
     data: boundingSelectionForTokens(tokenIds, mapState),
-    builtByClick: true,
+    resolved: true,
   };
 }
 
@@ -253,10 +253,6 @@ function useMapSelection(
     setIsSelectionMenuOpen(false);
   }
 
-  function openSelectionMenu() {
-    setIsSelectionMenuOpen(true);
-  }
-
   const selectionMenu = (
     <SelectionMenu
       map={map}
@@ -266,7 +262,6 @@ function useMapSelection(
       onSelectionChange={onSelectionChange}
       onSelectionItemsChange={onSelectionItemsChange}
       onSelectionItemsCreate={onSelectionItemsCreate}
-      onRequestOpen={openSelectionMenu}
       onRequestClose={closeSelectionMenu}
       // Ajuste do usuário (2026-10-12): NÃO usar `selectionActive` aqui —
       // esse flag é mais amplo (inclui "Mover") só para a lógica de

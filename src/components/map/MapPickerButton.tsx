@@ -19,6 +19,9 @@ type SelectMapButtonProps = {
   currentMap: Map | null;
   currentMapState: MapState | null;
   disabled: boolean;
+  /** The Mesa whose picker this is — scopes which maps are listed/
+   * created (types/Map.ts's `tableId`, SelectMapModal.tsx). */
+  tableId: string;
 } & SxProp;
 
 /** Toolbar button that opens the map select modal */
@@ -28,6 +31,7 @@ function SelectMapButton({
   currentMap,
   currentMapState,
   disabled,
+  tableId,
   sx,
 }: SelectMapButtonProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,6 +65,7 @@ function SelectMapButton({
         onMapChange={onMapChange}
         onMapReset={onMapReset}
         currentMap={currentMap}
+        tableId={tableId}
       />
     </>
   );

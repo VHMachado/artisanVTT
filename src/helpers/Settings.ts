@@ -14,15 +14,24 @@ function selectStorage(): SettingsStorage {
   }
 }
 
-function readVersion(storage: SettingsStorage, name: string): number | undefined {
+/**
+ * Version of the stored blob, or 0 when this device has never stored
+ * settings at all. Zero rather than undefined ON PURPOSE: `version()`
+ * below compares with `>`, and `1 > undefined` is false (NaN), so a
+ * fresh profile would run NO migration and leave `getAll()` returning
+ * `null` — which crashes the first component to read `settings.map`
+ * (components/map/MapScreen.tsx). Every migration must run on a device
+ * with nothing stored; that is exactly the case step 1 exists for.
+ */
+function readVersion(storage: SettingsStorage, name: string): number {
   const raw = storage.getItem(name);
   const parsed = raw ? JSON.parse(raw) : undefined;
-  return parsed?.__version;
+  return parsed?.__version ?? 0;
 }
 
 class Settings {
   private readonly storage: SettingsStorage;
-  private currentVersion: number | undefined;
+  private currentVersion: number;
 
   constructor(private readonly name: string) {
     this.storage = selectStorage();
@@ -30,8 +39,7 @@ class Settings {
   }
 
   version(versionNumber: number, upgrade: (settings: SettingsData) => SettingsData) {
-    const isNewer = versionNumber > (this.currentVersion as any);
-    if (!isNewer) return;
+    if (versionNumber <= this.currentVersion) return;
     this.currentVersion = versionNumber;
     this.setAll(upgrade(this.getAll()));
   }

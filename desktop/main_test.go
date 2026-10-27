@@ -41,6 +41,34 @@ func isWindowsRuntime() bool {
 	return os.PathSeparator == '\\'
 }
 
+func TestWirelessDisplayPickerCommandRejectsUnsupportedPlatforms(t *testing.T) {
+	for _, goos := range []string{"darwin", "js"} {
+		if _, err := wirelessDisplayPickerCommand(goos); err == nil {
+			t.Fatalf("goos=%q: expected an error, got none", goos)
+		}
+	}
+}
+
+func TestWirelessDisplayPickerCommandOnLinux(t *testing.T) {
+	cmd, err := wirelessDisplayPickerCommand("linux")
+	if err != nil {
+		t.Fatalf("wirelessDisplayPickerCommand(linux): %v", err)
+	}
+	if got := cmd.Args; len(got) != 1 || got[0] != "gnome-network-displays" {
+		t.Fatalf("args = %v, want exactly gnome-network-displays with no arguments", got)
+	}
+}
+
+func TestWirelessDisplayPickerCommandOnWindows(t *testing.T) {
+	cmd, err := wirelessDisplayPickerCommand("windows")
+	if err != nil {
+		t.Fatalf("wirelessDisplayPickerCommand(windows): %v", err)
+	}
+	if got := cmd.Args; len(got) != 2 || got[1] != "ms-settings-connectabledevices:devicediscovery" {
+		t.Fatalf("args = %v, want explorer.exe + the wireless-display URI", got)
+	}
+}
+
 func TestLocalMonsterArtRootDefaultsAndCreatesSubdirs(t *testing.T) {
 	configDir := withTempConfigDir(t)
 

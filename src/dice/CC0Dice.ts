@@ -7,6 +7,7 @@ import "@babylonjs/loaders/glTF";
 
 import Dice from "./Dice";
 import { attachCC0DiceFaceLocators, CC0_DICE } from "./cc0";
+import { createPhysicsHullMesh } from "./physicsHull";
 import type { DiceMeshes, DiceType } from "../types/Dice";
 
 export type CC0DiceStyle = {
@@ -70,6 +71,11 @@ export function normalizeCC0DiceMeshes(
 class CC0Dice extends Dice {
   static style: CC0DiceStyle;
   static meshes: DiceMeshes;
+  /** Low-poly, collision-only proxy per type (physicsHull.ts) — built once
+   * per style/scene here, alongside the detailed render meshes, and reused
+   * by every `createInstance` call for that type. Never rebuild per
+   * instance: that would defeat the whole optimization this exists for. */
+  static hulls: Partial<Record<DiceType, Mesh>>;
 
   static async load(scene: Scene): Promise<void> {
     if (this.meshes) {
@@ -83,6 +89,12 @@ class CC0Dice extends Dice {
       ] as const)
     );
     this.meshes = Object.fromEntries(entries) as DiceMeshes;
+    this.hulls = Object.fromEntries(
+      (Object.keys(CC0_DICE) as DiceType[]).map((type) => [
+        type,
+        createPhysicsHullMesh(type, LEGACY_DICE_DIAMETER, scene),
+      ])
+    ) as Partial<Record<DiceType, Mesh>>;
   }
 
   static async loadMesh(type: DiceType, scene: Scene): Promise<Mesh> {
@@ -152,7 +164,8 @@ class CC0Dice extends Dice {
     return this.createInstanceMesh(
       this.meshes[diceType],
       this.getDicePhysicalProperties(diceType),
-      scene
+      scene,
+      this.hulls?.[diceType]
     );
   }
 }

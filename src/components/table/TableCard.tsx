@@ -9,8 +9,7 @@ import ContextMenu, { ContextMenuPosition } from "../ContextMenu";
 
 import { SyncedTable } from "../../types/SyncedTable";
 import { renameTableLocally, deleteTableLocally } from "../../helpers/tablesSync";
-import { assetObjectURL } from "../../helpers/assetUpload";
-import { useAccount } from "../../contexts/AccountContext";
+import { useAssetPreviewURL } from "../../hooks/useAssetPreviewURL";
 import CreateCharacterModal from "../../modals/CreateCharacterModal";
 
 type TableCardProps = {
@@ -36,51 +35,23 @@ type TableCardProps = {
  */
 function TableCard({ table, isOwner, onlineCount }: TableCardProps) {
   const history = useHistory();
-  const { session } = useAccount();
   const [menuPosition, setMenuPosition] = useState<ContextMenuPosition | null>(
     null
   );
   const [isRenaming, setIsRenaming] = useState(false);
   const [isCreateCharacterOpen, setIsCreateCharacterOpen] = useState(false);
   const [name, setName] = useState(table.name);
-  const [bannerURL, setBannerURL] = useState<string | undefined>();
+  // Fetched authenticated (the broker's /asset/<hash> route needs a
+  // bearer token, so this can never be a plain <img src>) and then kept
+  // on-device, so a Mesa whose banner this machine has already seen still
+  // shows it with the broker unreachable — see
+  // helpers/brokerAssetCache.ts.
+  const bannerURL = useAssetPreviewURL(table.bannerAssetId);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setName(table.name);
   }, [table.name]);
-
-  // Load the banner image, authenticated (see helpers/assetUpload.ts —
-  // the /asset/<hash> endpoint requires a bearer token, so this can't be
-  // a plain <img src>). Revoke the previous object URL whenever the
-  // banner changes or the card unmounts, to avoid leaking blobs.
-  useEffect(() => {
-    if (!session || !table.bannerAssetId) {
-      setBannerURL(undefined);
-      return;
-    }
-    let cancelled = false;
-    let objectURL: string | undefined;
-    assetObjectURL(session, table.bannerAssetId)
-      .then((url) => {
-        if (cancelled) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-        objectURL = url;
-        setBannerURL(url);
-      })
-      .catch(() => {
-        // Broker unreachable or asset not synced yet — the card just
-        // falls back to the plain background, matching offline-first.
-      });
-    return () => {
-      cancelled = true;
-      if (objectURL) {
-        URL.revokeObjectURL(objectURL);
-      }
-    };
-  }, [session, table.bannerAssetId]);
 
   useEffect(() => {
     if (isRenaming) {

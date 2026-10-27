@@ -75,6 +75,19 @@ function unsupportedInstanceError(diceType: DiceType, scene: Scene) {
   return new Error(`No instance available for ${diceType} in ${scene}`);
 }
 
+/** Resolves the InstancedMesh that actually carries `.physicsImpostor` for
+ * a die's RENDERED instance — its own, unless `createInstanceFromMesh`
+ * attached a separate low-poly physics proxy as its parent (physicsHull.ts).
+ * Every physics read/write on a rolled die (roll, velocity, sleep check)
+ * must go through this instead of assuming `instance.physicsImpostor`
+ * directly, or it silently reads/writes nothing once the proxy exists. */
+export function physicsInstanceOf(instance: InstancedMesh): InstancedMesh {
+  const linked = (
+    instance.metadata as { physicsInstance?: InstancedMesh } | null | undefined
+  )?.physicsInstance;
+  return linked ?? instance;
+}
+
 class Dice {
   static instanceCount = 0;
 
@@ -92,25 +105,62 @@ class Dice {
     mesh: Mesh,
     name: string,
     physicalProperties: PhysicsImpostorParameters,
-    scene: Scene
+    scene: Scene,
+    hullMesh?: Mesh
   ) {
     const instance = mesh.createInstance(name);
-    instance.position = mesh.position;
     Dice.cloneInstanceChildren(mesh, instance);
 
-    instance.physicsImpostor = new PhysicsImpostor(
-      instance,
-      PhysicsImpostor.ConvexHullImpostor,
-      physicalProperties,
-      scene
-    );
+    if (hullMesh) {
+      // Low-poly collision-only proxy (physicsHull.ts): the body lives
+      // HERE, parented BELOW the rendered instance, because Ammo's
+      // ConvexHullImpostor construction cost scales super-linearly with
+      // input vertex count (see physicsHull.ts's doc comment) and the
+      // detailed CC0 mesh can carry thousands of bevel/engraving
+      // vertices a die's real convex shape never needed for collision.
+      // The rendered instance stays at a zero local offset so it tracks
+      // the proxy's physics-driven world transform exactly, with no
+      // per-frame sync code needed — Babylon already recomputes a
+      // child's world matrix from its parent every frame.
+      const physicsInstance = hullMesh.createInstance(`${name}_hull`);
+      physicsInstance.isVisible = false;
+      physicsInstance.isPickable = false;
+      physicsInstance.physicsImpostor = new PhysicsImpostor(
+        physicsInstance,
+        PhysicsImpostor.ConvexHullImpostor,
+        physicalProperties,
+        scene
+      );
+      instance.parent = physicsInstance;
+      instance.position = Vector3.Zero();
+      instance.metadata = { ...(instance.metadata || {}), physicsInstance };
+    } else {
+      instance.position = mesh.position;
+      instance.physicsImpostor = new PhysicsImpostor(
+        instance,
+        PhysicsImpostor.ConvexHullImpostor,
+        physicalProperties,
+        scene
+      );
+    }
 
     return instance;
   }
 
-  static createInstanceMesh(mesh: Mesh, physicalProperties: PhysicsImpostorParameters, scene: Scene): InstancedMesh {
+  static createInstanceMesh(
+    mesh: Mesh,
+    physicalProperties: PhysicsImpostorParameters,
+    scene: Scene,
+    hullMesh?: Mesh
+  ): InstancedMesh {
     Dice.instanceCount += 1;
-    return Dice.createInstanceFromMesh(mesh, `dice_instance_${Dice.instanceCount}`, physicalProperties, scene);
+    return Dice.createInstanceFromMesh(
+      mesh,
+      `dice_instance_${Dice.instanceCount}`,
+      physicalProperties,
+      scene,
+      hullMesh
+    );
   }
 
   /**

@@ -16,7 +16,16 @@ function dialogStyle(surfaceColor: CSS.Property.Color, override?: Props["style"]
       backgroundColor: "rgba(0, 0, 0, 0.73)",
       display: "flex",
       justifyContent: "center",
-      zIndex: 100,
+      // Precisa ficar ACIMA de Popover/ContextMenu (zIndex 200): o
+      // SettingsModal vive dentro de um Popover ancorado no dock (ver
+      // MapDock.tsx) e abre estes modais (Importar/Exportar, Backup no
+      // servidor, confirmação de apagar) por cima dele sem fechá-lo —
+      // com um zIndex mais baixo, o modal renderizava visualmente
+      // ATRÁS do próprio Popover de Configurações ainda montado,
+      // tornando seus botões inclicáveis (bug reportado 2026-10-25).
+      // Abaixo do zIndex 2000 do Banner (avisos de sistema sempre no
+      // topo, ver components/banner/Banner.tsx), que é intencional.
+      zIndex: 1000,
       ...(override?.overlay || {}),
     },
     content: {

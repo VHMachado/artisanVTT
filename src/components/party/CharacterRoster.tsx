@@ -181,11 +181,16 @@ function CharacterRoster({
         style={{
           flexGrow: 1,
           width: "100%",
-          // 8px, não 16px — tinha que bater com o inset horizontal
+          // Left 8px, não 16px — tinha que bater com o inset horizontal
           // do cabeçalho (px={2} = 8px sobre o padding p={3}=16px do
           // container de Party), senão as linhas do roster ficam mais
           // estreitas que o cabeçalho (bug reportado pelo usuário).
-          padding: "0 8px",
+          // Right trimmed to 2px: stacked on Party.tsx's own 4px right
+          // padding it used to add up to a 24px dead strip after the
+          // card's right edge, confusing since the panel's own edge
+          // (where MapBackButton/ResizeHandle sit) has no visible
+          // border to judge it by — see Party.tsx's note there.
+          padding: "0 2px 0 8px",
           height: "calc(100% - 232px)",
         }}
       >

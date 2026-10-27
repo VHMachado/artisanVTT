@@ -160,9 +160,8 @@ Variáveis de ambiente:
 | --- | --- | --- |
 | `PORT` | `9420` | Porta WebSocket do broker |
 | `ALLOW_ORIGIN` | `*` | CORS; lista de origens permitidas (`,` separado) — requisições do `.exe` não carregam `Origin`, só importa para um build de navegador |
-| `DATA_DIR` | `./data` | Diretório para o banco SQLite (contas, mesas, personagens) e backups de GM |
+| `DATA_DIR` | `./data` | Diretório para o banco SQLite (contas, mesas, personagens) |
 | `MAX_ACCOUNTS` | `4` | Limite de contas criadas (`docker-compose.yml` deste repo já sobe para `20`, ajustado ao tamanho da mesa) |
-| `MAX_BACKUP_BYTES` | `2147483648` | Max 2GB por backup |
 
 ### Frontend (Vite)
 

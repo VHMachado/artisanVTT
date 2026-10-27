@@ -40,11 +40,38 @@ function useSharedDiceRolls(session: Session): SharedDiceRollPayload | null {
       }
     }
 
-    session.socket?.on("dice_roll", handleDiceRoll);
+    // Captura o socket ATUAL numa constante local em vez de reler
+    // `session.socket` dentro do cleanup: `session.socket` é mutável (uma
+    // reconexão/`Session._handleSocketReconnect` o substitui por uma
+    // instância NOVA), e o cleanup só roda quando ESTE efeito já
+    // reagiu a essa troca — ou seja, `session.socket` no momento do
+    // cleanup já é o socket NOVO. Fazer `session.socket?.off(...)` ali
+    // removeria o listener do socket errado (o novo, que nunca o teve) e
+    // deixaria o listener esquecido no socket antigo.
+    const socket = session.socket;
+    socket?.on("dice_roll", handleDiceRoll);
     return () => {
-      session.socket?.off("dice_roll", handleDiceRoll);
+      socket?.off("dice_roll", handleDiceRoll);
     };
-  }, [session]);
+    // `session.socket` precisa estar nas deps, não só `session`: o objeto
+    // Session é um singleton estável (routes/Game.tsx's `useState(new
+    // Session())`) que NUNCA muda de identidade, mas `session.socket` é
+    // `undefined` até `session.connect()` resolver — e esse connect roda
+    // num efeito SEPARADO (useSessionConnection), gated em
+    // `isAccountLoaded`, que só fica true bem depois do primeiro render.
+    // Com deps `[session]` (como estava antes), este efeito corria UMA
+    // vez, no mount, via `session.socket?.on(...)` sobre um `socket`
+    // ainda `undefined` — o optional chaining engolia a chamada em
+    // silêncio, nenhum listener real era anexado, e como `session` nunca
+    // muda de identidade o efeito nunca rodava de novo para anexar no
+    // socket real depois que `connect()` o criava. O dice_roll chegava
+    // pela rede (confirmado via WebSocket bruto) mas nenhum handler
+    // JS jamais era chamado — silencioso tanto no Espectador quanto no
+    // Jogador comum assistindo a rolagem de outro, porque os dois passam
+    // por este mesmo hook. Mesma convenção que
+    // `useNetworkedState.ts`'s `useSyncIncomingState` já usa
+    // (`[session.socket, ...]`).
+  }, [session, session.socket]);
 
   return roll;
 }

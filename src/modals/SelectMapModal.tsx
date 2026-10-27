@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Label } from "theme-ui";
 import ReactResizeDetector from "react-resize-detector";
 import { useToasts } from "react-toast-notifications";
@@ -23,8 +23,8 @@ import { GroupProvider } from "../contexts/GroupContext";
 import { TileDragProvider } from "../contexts/TileDragContext";
 import { useMapData } from "../contexts/MapDataContext";
 import { useUserId } from "../contexts/UserIdContext";
-import { findGroup, getItemNames } from "../helpers/group";
-import { createMapFromFile } from "../helpers/map";
+import { findGroup, getItemNames, removeGroupsItems, restoreHiddenGroups } from "../helpers/group";
+import { createMapFromFile, filterMapsForTable } from "../helpers/map";
 import useResponsiveLayout from "../hooks/useResponsiveLayout";
 import type {
   MapChangeEventHandler,
@@ -39,6 +39,11 @@ type SelectMapModalProps = {
   onDone: RequestCloseEventHandler;
   onMapChange: MapChangeEventHandler;
   onMapReset: MapResetEventHandler;
+  /** The Mesa being browsed — see types/Map.ts's `tableId` doc comment:
+   * only maps stamped with this id, or predating that field entirely,
+   * are listed/editable here, and every newly imported map gets stamped
+   * with it. */
+  tableId: string;
 };
 
 type ModalSize = { height: number; width: number };
@@ -53,6 +58,7 @@ function SelectMapModal({
   onDone,
   onMapChange,
   onMapReset,
+  tableId,
 }: SelectMapModalProps) {
   const { addToast } = useToasts();
   const { addAssets } = useAssets();
@@ -65,7 +71,6 @@ function SelectMapModal({
     getMapState,
     mapGroups,
     maps,
-    mapsById,
     mapsLoading,
     mapStates,
     updateMap,
@@ -73,19 +78,43 @@ function SelectMapModal({
     updateMapState,
   } = useMapData();
 
+  // Bug fix (2026-10-26): maps were shared across every Mesa a GM has on
+  // this device — a single global Dexie "maps" table with no table
+  // concept at all (see types/Map.ts's `tableId` doc comment). Only
+  // maps stamped with THIS Mesa's id (or predating the field) are
+  // listed, grouped, or named here; `mapsById`/`updateMapGroups` stay
+  // scoped the same way so the folder tree never references a hidden
+  // map and bulk group edits can't silently touch another Mesa's maps.
+  const scopedMaps = useMemo(
+    () => filterMapsForTable(maps, tableId),
+    [maps, tableId]
+  );
+  const hiddenMapIds = useMemo(() => {
+    const visible = new Set(scopedMaps.map((map) => map.id));
+    return maps.filter((map) => !visible.has(map.id)).map((map) => map.id);
+  }, [maps, scopedMaps]);
+  const scopedMapsById = useMemo(
+    () => Object.fromEntries(scopedMaps.map((map) => [map.id, map])),
+    [scopedMaps]
+  );
+  const scopedMapGroups = useMemo(
+    () => removeGroupsItems(mapGroups, hiddenMapIds),
+    [mapGroups, hiddenMapIds]
+  );
+
   const chooserInput = useRef<HTMLInputElement>(null);
   const warnedFiles = useRef<File[]>();
   const [editingId, setEditingId] = useState<string>();
   const [isBusy, setIsBusy] = useState(false);
   const [isDraggingMap, setIsDraggingMap] = useState(false);
   const [largeWarningOpen, setLargeWarningOpen] = useState(false);
-  const [mapNames, setMapNames] = useState(() => getItemNames(maps));
+  const [mapNames, setMapNames] = useState(() => getItemNames(scopedMaps));
   const [modalSize, setModalSize] = useState<ModalSize>({ height: 0, width: 0 });
   const [mayAddDraggedMap, setMayAddDraggedMap] = useState(false);
 
   useEffect(() => {
-    setMapNames(getItemNames(maps));
-  }, [maps]);
+    setMapNames(getItemNames(scopedMaps));
+  }, [scopedMaps]);
 
   function resetImageChooser() {
     if (chooserInput.current) {
@@ -116,7 +145,7 @@ function SelectMapModal({
       return;
     }
     setIsBusy(true);
-    const { assets, map } = await createMapFromFile(file, userId);
+    const { assets, map } = await createMapFromFile(file, userId, tableId);
     await addMap(map);
     await addAssets(assets);
     setIsBusy(false);
@@ -175,7 +204,7 @@ function SelectMapModal({
       setMayAddDraggedMap(false);
       return;
     }
-    setMayAddDraggedMap(findGroup(mapGroups, groupIds[0])?.type === "item");
+    setMayAddDraggedMap(findGroup(scopedMapGroups, groupIds[0])?.type === "item");
   }
 
   function selectDraggedMap(groupIds: string[]) {
@@ -190,7 +219,7 @@ function SelectMapModal({
     }
   }
 
-  const editingMap = editingId ? maps.find((map) => map.id === editingId) : undefined;
+  const editingMap = editingId ? scopedMaps.find((map) => map.id === editingId) : undefined;
   const editingState = editingId ? mapStates.find((state) => state.mapId === editingId) : undefined;
   const dragAddHandler = mayAddDraggedMap ? selectDraggedMap : undefined;
   const tileEvents = {
@@ -229,9 +258,11 @@ function SelectMapModal({
         >
           <GroupProvider
             disabled={!isOpen}
-            groups={mapGroups}
+            groups={scopedMapGroups}
             itemNames={mapNames}
-            onGroupsChange={updateMapGroups}
+            onGroupsChange={(nextGroups) =>
+              updateMapGroups(restoreHiddenGroups(mapGroups, nextGroups, hiddenMapIds))
+            }
             onGroupsSelect={updateSelectedGroups}
           >
             <Flex sx={{ flexDirection: "column" }}>
@@ -242,7 +273,7 @@ function SelectMapModal({
                   <TilesContainer>
                     {databaseStatus === "disabled" && <DatabaseDisabledMessage type="Map" />}
                     <MapTiles
-                      mapsById={mapsById}
+                      mapsById={scopedMapsById}
                       onMapEdit={setEditingId}
                       onMapSelect={chooseMap}
                     />
@@ -251,7 +282,7 @@ function SelectMapModal({
                 <TileDragProvider {...tileEvents}>
                   <TilesOverlay modalSize={modalSize}>
                     <MapTiles
-                      mapsById={mapsById}
+                      mapsById={scopedMapsById}
                       onMapEdit={setEditingId}
                       onMapSelect={chooseMap}
                       subgroup

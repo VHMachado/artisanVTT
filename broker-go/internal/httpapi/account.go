@@ -1,12 +1,11 @@
 // RegisterAccountRoutes mirrors backend/src/controllers/AccountController.ts:
-// register/login/logout plus streamed backup upload/download.
+// register/login/logout.
 package httpapi
 
 import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -66,16 +65,6 @@ func RegisterAccountRoutes(mux *http.ServeMux, accts *accounts.Accounts, cfg *co
 			return
 		}
 		handleLogout(w, r, accts)
-	})
-	mux.HandleFunc("/account/backup", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPut:
-			handleUploadBackup(w, r, accts, cfg)
-		case http.MethodGet:
-			handleDownloadBackup(w, r, accts)
-		default:
-			http.NotFound(w, r)
-		}
 	})
 }
 
@@ -169,57 +158,4 @@ func handleLogout(w http.ResponseWriter, r *http.Request, accts *accounts.Accoun
 		accts.Logout(token)
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func handleUploadBackup(w http.ResponseWriter, r *http.Request, accts *accounts.Accounts, cfg *config.Config) {
-	username, ok := authenticate(accts, w, r)
-	if !ok {
-		return
-	}
-
-	target := accts.BackupPath(username)
-	tmp := target + ".tmp"
-
-	out, err := os.Create(tmp)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Unable to save backup"})
-		return
-	}
-
-	limited := io.LimitReader(r.Body, cfg.MaxBackupBytes+1)
-	written, err := io.Copy(out, limited)
-	out.Close()
-	if err != nil {
-		os.Remove(tmp)
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Upload failed"})
-		return
-	}
-	if written > cfg.MaxBackupBytes {
-		os.Remove(tmp)
-		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "Backup is too large for this server"})
-		return
-	}
-
-	if err := os.Rename(tmp, target); err != nil {
-		os.Remove(tmp)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Unable to save backup"})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"size": written, "updatedAt": nowMillis()})
-}
-
-func handleDownloadBackup(w http.ResponseWriter, r *http.Request, accts *accounts.Accounts) {
-	username, ok := authenticate(accts, w, r)
-	if !ok {
-		return
-	}
-	target := accts.BackupPath(username)
-	f, err := os.Open(target)
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "No backup saved yet"})
-		return
-	}
-	defer f.Close()
-	w.Header().Set("Content-Type", "application/octet-stream")
-	io.Copy(w, f)
 }

@@ -12,7 +12,6 @@ import Vector2 from "../../helpers/Vector2";
 import CopyIcon from "../../icons/CopyIcon";
 import HideIcon from "../../icons/TokenHideIcon";
 import LockIcon from "../../icons/TokenLockIcon";
-import PasteIcon from "../../icons/PasteIcon";
 import ShowIcon from "../../icons/TokenShowIcon";
 import UnlockIcon from "../../icons/TokenUnlockIcon";
 import shortcuts from "../../shortcuts";
@@ -32,8 +31,9 @@ type SelectionMenuProps = Readonly<{
   mapState: MapState | null;
   selection: Selection | null;
   isOpen: boolean;
+  /** True while "Selecionar" is bound to a mouse button — scopes the
+   * copy/paste keyboard shortcuts, nothing else. */
   active: boolean;
-  onRequestOpen: () => void;
   onRequestClose: RequestCloseEventHandler;
   onSelectionItemsCreate: SelectionItemsCreateEventHandler;
   onSelectionItemsChange: SelectionItemsChangeEventHandler;
@@ -78,48 +78,20 @@ function useMenuAnchor(isOpen: boolean, selection: Selection | null, width: numb
   return [position, setPosition] as const;
 }
 
-function usePasteMenu(active: boolean, isOpen: boolean, selection: Selection | null, onOpen: () => void) {
-  const openedOnDown = useRef(false);
-  const downPosition = useRef({ x: 0, y: 0 });
-  useEffect(() => {
-    if (!active) return;
-    const element = document.querySelector<HTMLElement>(".map");
-    const onDown = (event: PointerEvent) => {
-      openedOnDown.current = isOpen || !!selection;
-      downPosition.current = { x: event.clientX, y: event.clientY };
-    };
-    const onUp = (event: MouseEvent | TouchEvent) => {
-      const point = event instanceof MouseEvent
-        ? { x: event.clientX, y: event.clientY }
-        : { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY };
-      if (!openedOnDown.current && !selection && Vector2.distance(point, downPosition.current) < 10 && event.target instanceof HTMLCanvasElement) onOpen();
-    };
-    element?.addEventListener("pointerdown", onDown);
-    element?.addEventListener("mouseup", onUp);
-    element?.addEventListener("touchend", onUp);
-    return () => {
-      element?.removeEventListener("pointerdown", onDown);
-      element?.removeEventListener("mouseup", onUp);
-      element?.removeEventListener("touchend", onUp);
-    };
-  }, [active, isOpen, onOpen, selection]);
-}
-
 function successToast(addToast: (message: string) => void, action: string, tokens?: TokenStates) {
   const count = tokens ? Object.keys(tokens).length : 0;
   if (count) addToast(`${action} ${count} token${count === 1 ? "" : "s"}`);
 }
 
-function SelectionMenu({ isOpen, active, onRequestClose, onRequestOpen, selection, onSelectionChange, onSelectionItemsChange, onSelectionItemsCreate, map, mapState }: SelectionMenuProps) {
+function SelectionMenu({ isOpen, active, onRequestClose, selection, onSelectionChange, onSelectionItemsChange, onSelectionItemsCreate, map, mapState }: SelectionMenuProps) {
   const { addToast } = useToasts();
   const userId = useUserId();
   const stageRef = useMapStage();
-  const width = selection ? 156 : 48;
+  const width = 156;
   const [position, setPosition] = useMenuAnchor(isOpen, selection, width);
   const [states, setStates] = useState({ visible: false, locked: false });
   const fallbackClipboard = useRef("");
 
-  usePasteMenu(active, isOpen, selection, onRequestOpen);
   useEffect(() => setStates(selectedItemsState(selection, mapState)), [isOpen, mapState, selection]);
 
   const updateSelectionItems = (change: Partial<TokenState>) => {
@@ -182,11 +154,22 @@ function SelectionMenu({ isOpen, active, onRequestClose, onRequestOpen, selectio
     </>
   ) : null;
 
+  // Nothing to show without a selection. The menu used to ALSO pop up
+  // with a lone "Colar" (clipboard) button on any short click on empty
+  // canvas while "Selecionar" was bound — a floating button with no
+  // counterpart anywhere else in the UI, which read as a glitch (it
+  // appeared, for instance, right after clicking a token's edge cleared
+  // the selection). Ctrl+V below is the paste path.
+  if (!selection) {
+    return null;
+  }
+
   return (
     <MapMenu isOpen={isOpen} onRequestClose={onRequestClose} top={`${position.top}px`} left={`${position.left}px`} onModalContent={clampToMap}>
       <Box sx={{ width: `${width}px`, overflow: "hidden" }} p={1}>
         <Flex sx={{ alignItems: "center", justifyContent: "space-around" }}>
-          {selection ? <>{ownerActions}<IconButton title="Copy Items" aria-label="Copy Items" onClick={copy}><CopyIcon /></IconButton></> : <IconButton title="Paste Items" aria-label="Paste Items" onClick={paste}><PasteIcon /></IconButton>}
+          {ownerActions}
+          <IconButton title="Copy Items" aria-label="Copy Items" onClick={copy}><CopyIcon /></IconButton>
         </Flex>
       </Box>
     </MapMenu>

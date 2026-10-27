@@ -382,6 +382,7 @@ function MapContols(props: MapControlsProps) {
           currentMapState={mapState}
           disabled={disabledControls.includes("map")}
           sx={railButtonSx}
+          tableId={gameId}
         />
       ),
     },
@@ -444,6 +445,12 @@ function MapContols(props: MapControlsProps) {
     sections.push({
       id: "spectator",
       component: (
+        // Só o olho que ABRE o Espectador. O botão de transmitir
+        // (Miracast) morava aqui ao lado e saiu para
+        // components/map/MapCastButton.tsx, que só renderiza DENTRO da
+        // janela de Espectador: o cast transmite a visão de espectador,
+        // então oferecê-lo na janela do Mestre apontava para a janela
+        // errada.
         <IconButton
           aria-label="Abrir Espectador"
           title="Abrir Espectador"

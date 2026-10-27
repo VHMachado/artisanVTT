@@ -23,20 +23,20 @@ export interface BaseSelection {
   y: number;
   items: SelectionItem[];
   /**
-   * Pedido do usuário (2026-10-12): shift+click multi-seleção
-   * (useMapSelection.tsx's handleTokenShiftClick) — true só para uma
-   * seleção construída clicando tokens individualmente, nunca para uma
-   * desenhada com a marquee (SelectTool's handleBrushUp nunca seta este
-   * campo, então fica undefined/falsy ali, lido como false). Usado por
-   * SelectTool.tsx para decidir SE a shape Konva arrastável de grupo
-   * (components/konva/Selection.tsx) deve renderizar: ela intercepta
-   * cliques em toda sua bounding box (inclusive sobre tokens), o que
-   * quebraria o toggle de shift+click num token já selecionado — então
-   * o arraste em grupo de uma seleção por clique é feito por
-   * Token.tsx's próprio mecanismo de "tokens anexados" em vez desta
-   * shape, deixando cada token individualmente clicável.
+   * Pedido do usuário (2026-10-12, revisado 2026-10-26): true para
+   * qualquer seleção já "resolvida" num grupo de tokens — construída
+   * clicando/shift+clicando tokens individualmente (useMapSelection.tsx's
+   * buildTokenSelection) OU por uma marquee que terminou de arrastar e
+   * encontrou tokens (SelectTool.tsx's `end()`). Nos dois casos o
+   * arraste em grupo passa a ser feito pelo mecanismo de "tokens
+   * anexados" do próprio Token.tsx (groupSelectedIds), não pela shape
+   * Konva arrastável de grupo (components/konva/Selection.tsx) — essa
+   * shape intercepta cliques em toda sua bounding box (inclusive sobre
+   * tokens), o que impediria clicar e arrastar um token individual
+   * dentro da área selecionada, e por isso só renderiza enquanto a
+   * seleção ainda está sendo desenhada (`resolved` falso/undefined).
    */
-  builtByClick?: boolean;
+  resolved?: boolean;
 }
 
 export type RectSelection = BaseSelection & { type: "rectangle"; data: RectData };

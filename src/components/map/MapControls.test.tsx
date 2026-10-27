@@ -17,6 +17,7 @@ vi.mock("../../contexts/SpectatorContext", () => ({ useIsSpectator: () => false 
 vi.mock("../../contexts/AccountContext", () => ({ useAccount: () => ({ session: null }) }));
 vi.mock("../../contexts/UserIdContext", () => ({ useUserId: () => "gm" }));
 vi.mock("../../helpers/spectator", () => ({ openSpectatorWindow: vi.fn() }));
+vi.mock("react-toast-notifications", () => ({ useToasts: () => ({ addToast: vi.fn() }) }));
 vi.mock("./SelectMapButton", () => ({ default: () => <div /> }));
 vi.mock("../RadioIconButton", () => ({
   default: ({
@@ -153,4 +154,5 @@ describe("MapControls", () => {
     ReactDOM.unmountComponentAtNode(container);
     container.remove();
   });
+
 });

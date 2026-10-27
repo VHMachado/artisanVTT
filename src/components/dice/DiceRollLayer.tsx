@@ -7,7 +7,7 @@ import type { Scene } from "@babylonjs/core";
 
 import DiceInteraction from "./DiceInteraction";
 import DiceArena from "../../dice/diceTray/DiceArena";
-import Dice from "../../dice/Dice";
+import Dice, { physicsInstanceOf } from "../../dice/Dice";
 
 import { useDiceLoading } from "../../contexts/DiceLoadingContext";
 
@@ -36,6 +36,20 @@ type DiceRollLayerProps = {
    * arremesso; `null` limpa a cena. */
   request: DiceRollRequest | null;
   onDiceRollsChange: (rolls: DiceRoll[]) => void;
+  /**
+   * Dispara para QUALQUER rolagem que esta camada anima — a local
+   * (`publishResults: true`) E a recebida de outro jogador
+   * (`publishResults: false`) — só para alimentar a UI de exibição
+   * (o cartão "ROLL / ... / DICE ROLL"). Diferente de `onDiceRollsChange`,
+   * que continua restrito à rolagem local porque ele alimenta
+   * `player_state.dice`: deixar uma rolagem remota passar por ali
+   * sobrescreveria os dados do jogador que está só assistindo (ver
+   * a nota em helpers/diceRoll.ts e na skill de sincronização). Sem este
+   * callback separado, quem assiste a rolagem de outro (Jogador OU a
+   * janela Espectador, que nem tem o painel de Jogadores para conferir o
+   * total por outra via) via os dados caírem sem nunca saber o número.
+   */
+  onRollDisplay: (rolls: DiceRoll[]) => void;
   /** Serializa rolagens simultâneas: o dock só inicia a próxima depois que
    * todos os dados desta adormecerem. Sem isto, uma rolagem remota no meio
    * da local apagaria as meshes locais antes de seu resultado ser lido. */
@@ -46,11 +60,35 @@ type DiceRollLayerProps = {
   /**
    * Incrementar este número remove os dados que já pararam de rolar da
    * tela, fora do ciclo normal de "a próxima rolagem substitui a
-   * anterior" — o dock chama isto a partir do botão "Limpar" do cartão de
-   * resultado e ao reabrir a bandeja de seleção (o usuário reportou que
-   * nenhum dos dois limpava os dados antigos antes desta correção).
+   * anterior" — o dock chama isto ao reabrir a bandeja de seleção. NÃO
+   * descarta uma rolagem ainda em voo (ver o guard dentro do efeito):
+   * reabrir o painel enquanto os dados ainda caem não pode impedir o
+   * `onRollComplete` que a fila espera para liberar o próximo pedido.
+   * Para o botão "Limpar" do cartão de resultado, que precisa funcionar
+   * mesmo em voo, use `forceClearToken` abaixo.
    */
   clearToken: number;
+  /**
+   * Incrementar este número SEMPRE limpa a cena imediatamente, mesmo que
+   * a rolagem servida ainda não tenha sido marcada concluída pela física
+   * (dados ainda jitterando/assentando) — é o que o botão "Limpar" do
+   * cartão de resultado dispara. Diferente de `clearToken`, nunca adia:
+   * se a rolagem servida ainda não completou, este efeito a completa
+   * primeiro (chamando `onRollComplete` ele mesmo) antes de descartar as
+   * meshes, para a fila nunca ficar presa esperando um `onRollComplete`
+   * que o descarte precoce tornaria impossível de disparar naturalmente
+   * (a malha some, `die.length` vai a 0, e o loop de render nunca mais
+   * encontra `diceAwake === false` com dados para completar).
+   *
+   * Sem esta distinção, um clique em "Limpar" durante a janela de ~1s em
+   * que os dados já mostram o número mas ainda não foram marcados
+   * `asleep` (ver `update()`/`sleepTimeout`) caía no MESMO guard de
+   * `clearToken` acima — a cena não era limpa, e o intervalo de 100ms que
+   * publica resultados (`onRollDisplay`) ressuscitava o cartão no tick
+   * seguinte, exigindo um SEGUNDO clique depois que a física enfim
+   * marcasse a rolagem concluída por conta própria.
+   */
+  forceClearToken: number;
 };
 
 /**
@@ -72,9 +110,11 @@ type DiceRollLayerProps = {
 function DiceRollLayer({
   request,
   onDiceRollsChange,
+  onRollDisplay,
   onRollComplete,
   onLoadError,
   clearToken,
+  forceClearToken,
 }: DiceRollLayerProps) {
   const sceneRef = useRef<Scene>();
   const shadowGeneratorRef = useRef<ShadowGenerator>();
@@ -155,12 +195,12 @@ function DiceRollLayer({
         for (let i = 0; i < count; i += 1) {
           const instance = style.class.createInstance(type, scene);
           shadowGenerator.addShadowCaster(instance);
-          Dice.roll(instance, arena.rollArea, random);
+          Dice.roll(physicsInstanceOf(instance), arena.rollArea, random);
           const die: DiceMesh = { type, instance, asleep: false };
           if (type === "d100") {
             const d10Instance = style.class.createInstance("d10", scene);
             shadowGenerator.addShadowCaster(d10Instance);
-            Dice.roll(d10Instance, arena.rollArea, random);
+            Dice.roll(physicsInstanceOf(d10Instance), arena.rollArea, random);
             die.d10Instance = d10Instance;
           }
           diceRefs.current.push(die);
@@ -171,9 +211,12 @@ function DiceRollLayer({
       if (toThrow.publishResults) {
         onDiceRollsChange(created);
       }
+      // Alimenta o cartão de resultado para QUALQUER rolagem, local ou
+      // remota — ver o comentário de `onRollDisplay` em `DiceRollLayerProps`.
+      onRollDisplay(created);
       forceRender();
     },
-    [clearDice, diceStyleKey, forceRender, onDiceRollsChange]
+    [clearDice, diceStyleKey, forceRender, onDiceRollsChange, onRollDisplay]
   );
 
   const handleSceneMount = useCallback(
@@ -290,6 +333,30 @@ function DiceRollLayer({
     forceRender();
   }, [clearToken, clearDice, forceRender, request]);
 
+  // `forceClearToken` sobe só no clique explícito em "Limpar" do cartão de
+  // resultado — ver o comentário em `DiceRollLayerProps`. NUNCA adia: se a
+  // rolagem servida ainda não completou (dados em pleno voo/assentando),
+  // completa ela mesmo aqui — chamando `onRollComplete` diretamente — antes
+  // de descartar as meshes, porque uma vez que `clearDice()` esvazia
+  // `diceRefs`, o loop de `update()` nunca mais vai encontrar `die.length >
+  // 0 && !diceAwake` para completar este pedido por conta própria. Sem
+  // isso, a fila ficaria presa esperando um `onRollComplete` que nunca
+  // chegaria depois de uma limpeza forçada em voo.
+  const forceClearTokenRef = useRef(forceClearToken);
+  useEffect(() => {
+    if (forceClearTokenRef.current === forceClearToken) {
+      return;
+    }
+    forceClearTokenRef.current = forceClearToken;
+    const currentRequest = servedRequestRef.current;
+    if (currentRequest && completedRequestRef.current !== currentRequest) {
+      completedRequestRef.current = currentRequest;
+      onRollCompleteRef.current(currentRequest);
+    }
+    clearDice();
+    forceRender();
+  }, [forceClearToken, clearDice, forceRender]);
+
   function update(scene: Scene) {
     const die = diceRefs.current;
     const forceSceneRender = sceneKeepAwakeRef.current > 0;
@@ -332,10 +399,13 @@ function DiceRollLayer({
 
   function diceSpeed(die: DiceMesh): number {
     const speed =
-      die.instance.physicsImpostor?.getLinearVelocity()?.length() || 0;
+      physicsInstanceOf(die.instance).physicsImpostor?.getLinearVelocity()?.length() ||
+      0;
     if (die.d10Instance) {
       const d10Speed =
-        die.d10Instance.physicsImpostor?.getLinearVelocity()?.length() || 0;
+        physicsInstanceOf(die.d10Instance)
+          .physicsImpostor?.getLinearVelocity()
+          ?.length() || 0;
       return Math.max(speed, d10Speed);
     }
     return speed;
@@ -343,20 +413,23 @@ function DiceRollLayer({
 
   // Publica os valores enquanto os dados ainda rolam, como antes: é o que
   // faz o total aparecer assim que eles param, sem esperar um evento.
+  // `onRollDisplay` dispara para qualquer rolagem (local ou remota);
+  // `onDiceRollsChange` (que alimenta `player_state.dice`) só quando o
+  // pedido é local — ver o comentário de `onRollDisplay` acima.
   useEffect(() => {
     const interval = setInterval(() => {
       const die = diceRefs.current;
-      if (
-        !request?.publishResults ||
-        die.length === 0 ||
-        !die.some((d) => !d.asleep)
-      ) {
+      if (!request || die.length === 0 || !die.some((d) => !d.asleep)) {
         return;
       }
-      onDiceRollsChange(die.map((d) => getDiceRoll(d)));
+      const rolls = die.map((d) => getDiceRoll(d));
+      if (request.publishResults) {
+        onDiceRollsChange(rolls);
+      }
+      onRollDisplay(rolls);
     }, 100);
     return () => clearInterval(interval);
-  }, [request, onDiceRollsChange]);
+  }, [request, onDiceRollsChange, onRollDisplay]);
 
   function handleCanvasResize(width: number, height: number) {
     canvasSizeRef.current = { width, height };

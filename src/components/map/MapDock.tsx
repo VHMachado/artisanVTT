@@ -156,6 +156,28 @@ function SpectatorDiceLayer({ session }: Pick<MapDockProps, "session">) {
   const rollQueueRef = useRef(rollQueue);
   const [hasMountedDiceLayer, setHasMountedDiceLayer] = useState(false);
   const diceLayerFailedRef = useRef(false);
+  // A janela Espectador não tem o painel de Jogadores (gate em
+  // routes/Game.tsx: `{!isSpectator && <NetworkedParty .../>}`), que é
+  // onde `CharacterRoster`/`DiceRolls.tsx` mostrariam o total de uma
+  // rolagem de outra pessoa via `player_state.dice`/`partyState`. Sem um
+  // cartão de resultado PRÓPRIO aqui, a única coisa que a Espectadora via
+  // era os dados caindo sem nenhum número associado. Mantém o mesmo
+  // cartão "ROLL / ... / DICE ROLL" do dock normal, alimentado por
+  // `onRollDisplay` (ver o comentário em DiceRollLayer.tsx), que dispara
+  // também para rolagens remotas.
+  const [lastRollResult, setLastRollResult] = useState<DiceRoll[] | null>(
+    null
+  );
+  // Espectador não tem bandeja de seleção para "reabrir" (sem concorrente
+  // pelo `clearToken` soft), então o único clear aqui é sempre o explícito
+  // do cartão — por isso usa `forceClearToken`, nunca `clearToken` (ver o
+  // comentário de ambos em DiceRollLayer.tsx: o soft `clearToken` adia se
+  // a rolagem servida ainda não completou, o que fazia o cartão
+  // "ressuscitar" no tick seguinte do intervalo de 100ms e exigir um
+  // segundo clique em "Limpar"). Mantido constante — DiceRollLayer exige
+  // o prop, mas nada aqui bate nele.
+  const [clearToken] = useState(0);
+  const [forceClearToken, setForceClearToken] = useState(0);
 
   const enqueueSharedRequest = useCallback((next: SharedDiceRollPayload) => {
     // Sem uma ação local na janela spectator para pedir nova tentativa, uma
@@ -197,7 +219,16 @@ function SpectatorDiceLayer({ session }: Pick<MapDockProps, "session">) {
     setRollQueue(cleared);
   }, []);
 
+  const handleRollDisplay = useCallback((rolls: DiceRoll[]) => {
+    setLastRollResult(rolls);
+  }, []);
+
   const ignoreDiceRollsChange = useCallback((_rolls: DiceRoll[]) => {}, []);
+
+  const handleClearRollResult = useCallback(() => {
+    setLastRollResult(null);
+    setForceClearToken((token) => token + 1);
+  }, []);
 
   if (!hasMountedDiceLayer) {
     return null;
@@ -208,10 +239,31 @@ function SpectatorDiceLayer({ session }: Pick<MapDockProps, "session">) {
       <DiceRollLayer
         request={rollQueue.active}
         onDiceRollsChange={ignoreDiceRollsChange}
+        onRollDisplay={handleRollDisplay}
         onRollComplete={handleRollComplete}
         onLoadError={handleDiceLayerError}
-        clearToken={0}
+        clearToken={clearToken}
+        forceClearToken={forceClearToken}
       />
+      {lastRollResult && (
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: "24px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 2,
+            pointerEvents: "none",
+          }}
+        >
+          <Box sx={{ pointerEvents: "all" }}>
+            <DiceRollResultCard
+              rolls={lastRollResult}
+              onClear={handleClearRollResult}
+            />
+          </Box>
+        </Box>
+      )}
     </React.Suspense>
   );
 }
@@ -253,10 +305,22 @@ function MapDockContent({
   const [lastRollResult, setLastRollResult] = useState<DiceRoll[] | null>(
     null
   );
-  // Sobe a cada "Limpar" e também ao abrir a bandeja de seleção —
-  // o usuário reportou os dois casos como não limpando os dados antigos da
-  // tela. Ver o comentário em `DiceRollLayer`'s `clearToken` prop.
+  // Sobe ao abrir a bandeja de seleção — o usuário reportou que isso não
+  // limpava os dados antigos da tela. Ver o comentário de `clearToken` em
+  // DiceRollLayer.tsx: adia o descarte se a rolagem servida ainda não
+  // completou (não pode cortar um arremesso em voo só porque o painel
+  // reabriu). O clique explícito em "Limpar" do cartão usa
+  // `forceClearToken` abaixo, que NUNCA adia.
   const [clearToken, setClearToken] = useState(0);
+  // Sobe só no clique em "Limpar" do cartão de resultado — sempre limpa a
+  // cena na hora, mesmo que a rolagem ainda esteja assentando (ver o
+  // comentário de `forceClearToken` em DiceRollLayer.tsx). Usar o
+  // `clearToken` soft aqui era o motivo de precisar clicar "Limpar" duas
+  // vezes: o primeiro clique caía dentro da janela de ~1s em que a física
+  // ainda não marcou a rolagem como concluída, então nada era descartado
+  // e o intervalo de 100ms que publica resultados ressuscitava o cartão
+  // no tick seguinte.
+  const [forceClearToken, setForceClearToken] = useState(0);
 
   // The tracker is Mestre-only — Jogadores neither edit
   // NOR see it. The Espectador gate is already handled by MapDock above.
@@ -395,16 +459,25 @@ function MapDockContent({
         }),
         shareDice
       );
-      // Só chega aqui para a rolagem LOCAL (publishResults:true) — ver
-      // DiceRollLayer. É o gatilho do cartão de resultado.
-      setLastRollResult(rolls);
     },
     [setPlayerState, shareDice]
   );
 
+  // Mostra o cartão de resultado para QUALQUER rolagem que esta tela anima —
+  // a própria (publishResults:true) OU uma recebida de outro jogador
+  // (publishResults:false, via useSharedDiceRolls). Antes só a própria
+  // rolagem chamava `setLastRollResult` (dentro de `handleDiceRollsChange`
+  // acima), então quem assistia a rolagem de outro via os dados caírem sem
+  // nunca saber o número — tinha que abrir o painel de Jogadores
+  // (CharacterRoster/DiceRolls.tsx) para achar o total ali. Ver o
+  // comentário de `onRollDisplay` em DiceRollLayer.tsx.
+  const handleRollDisplay = useCallback((rolls: DiceRoll[]) => {
+    setLastRollResult(rolls);
+  }, []);
+
   const handleClearRollResult = useCallback(() => {
     setLastRollResult(null);
-    setClearToken((token) => token + 1);
+    setForceClearToken((token) => token + 1);
   }, []);
 
   const handleShareDiceChange = useCallback(
@@ -531,9 +604,11 @@ function MapDockContent({
             key={diceLayerGeneration}
             request={request}
             onDiceRollsChange={handleDiceRollsChange}
+            onRollDisplay={handleRollDisplay}
             onRollComplete={handleRollComplete}
             onLoadError={handleDiceLayerError}
             clearToken={clearToken}
+            forceClearToken={forceClearToken}
           />
         </React.Suspense>
       )}

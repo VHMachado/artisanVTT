@@ -12,7 +12,6 @@ type Config struct {
 	Port            string
 	OriginWhitelist string
 	DataDir         string
-	MaxBackupBytes  int64
 	MaxAccounts     int
 }
 
@@ -26,13 +25,6 @@ func Load() *Config {
 	dataDir := os.Getenv("DATA_DIR")
 	if dataDir == "" {
 		dataDir = filepath.Join(root, "data")
-	}
-
-	maxBackupBytes := int64(2 * 1024 * 1024 * 1024) // 2GB default
-	if v := os.Getenv("MAX_BACKUP_BYTES"); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
-			maxBackupBytes = n
-		}
 	}
 
 	maxAccounts := 4
@@ -51,7 +43,6 @@ func Load() *Config {
 		Port:            port,
 		OriginWhitelist: os.Getenv("ALLOW_ORIGIN"),
 		DataDir:         dataDir,
-		MaxBackupBytes:  maxBackupBytes,
 		MaxAccounts:     maxAccounts,
 	}
 }

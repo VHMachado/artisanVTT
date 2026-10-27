@@ -498,6 +498,7 @@ function NetworkedMapAndTokens({
     <GlobalImageDrop
       onMapChange={handleMapChange}
       onMapTokensStateCreate={handleMapTokensStateCreate}
+      tableId={gameId}
     >
       <Map {...mapProps} />
     </GlobalImageDrop>

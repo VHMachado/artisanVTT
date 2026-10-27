@@ -181,10 +181,22 @@ function Popover({
     }
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node;
+      // Um Modal (react-modal) aberto por este painel SettingsModal/
+      // ImportExportModal/ConfirmModal) é um irmão no DOM,
+      // não um filho — vive no próprio `.ReactModalPortal` (classe fixa
+      // que react-modal injeta em document.body), fora de containerRef.
+      // Sem esta checagem, o primeiro clique dentro desse modal conta
+      // como "fora" e fecha o Popover antes do próprio clique terminar,
+      // desmontando o modal junto e tornando seus botões inclicáveis
+      // (bug reportado 2026-10-25, reaparecia mesmo depois de corrigir
+      // o zIndex — a causa real era este listener, não a camada visual).
+      const insideReactModalPortal =
+        target instanceof Element && target.closest(".ReactModalPortal") !== null;
       if (
         containerRef.current &&
         !containerRef.current.contains(target) &&
-        !(anchorRef.current && anchorRef.current.contains(target))
+        !(anchorRef.current && anchorRef.current.contains(target)) &&
+        !insideReactModalPortal
       ) {
         onRequestClose();
       }

@@ -22,6 +22,9 @@ type GlobalImageDropProps = {
   onMapChange: (map: Map, mapState: MapState) => void;
   // Kept for NetworkedMapAndTokens' established call-site contract.
   onMapTokensStateCreate: (states: TokenState[]) => void;
+  /** The Mesa to stamp onto any map created from this drop, so it only
+   * shows up in THIS Mesa's picker (types/Map.ts's `tableId`). */
+  tableId: string;
 };
 
 const warningBytes = 20_000_000;
@@ -77,7 +80,7 @@ function GlobalDropOverlay({ listeners }: { listeners: ReturnType<typeof useImag
  * current map; multi-file drops only extend the library. Token-drop support is
  * deliberately absent, though its prop remains for the existing parent API.
  */
-function GlobalImageDrop({ children, onMapChange }: GlobalImageDropProps) {
+function GlobalImageDrop({ children, onMapChange, tableId }: GlobalImageDropProps) {
   const { addToast } = useToasts();
   const { addAssets } = useAssets();
   const { addMap, getMapState } = useMapData();
@@ -113,7 +116,7 @@ function GlobalImageDrop({ children, onMapChange }: GlobalImageDropProps) {
     setIsLoading(true);
     const imported: Map[] = [];
     for (const file of files) {
-      const { assets, map } = await createMapFromFile(file, userId);
+      const { assets, map } = await createMapFromFile(file, userId, tableId);
       await addMap(map);
       await addAssets(assets);
       imported.push(map);

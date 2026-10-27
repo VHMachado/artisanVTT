@@ -101,6 +101,35 @@ describe("Popover", () => {
     anchor.remove();
   });
 
+  // Regressão (2026-10-25): um Modal (react-modal) aberto POR CIMA do
+  // Popover (ex.: SettingsModal abrindo ImportExportModal/
+  // ConfirmModal) vive num .ReactModalPortal próprio em document.body —
+  // irmão do painel do Popover no DOM, não filho. Sem esta exclusão, o
+  // primeiro clique dentro dele contava como "fora" e fechava o Popover
+  // (desmontando o modal filho com ele), tornando seus botões
+  // inclicáveis mesmo com o zIndex corrigido.
+  test("does not close on a pointerdown inside a react-modal portal", () => {
+    const anchor = renderAnchor();
+    const onRequestClose = vi.fn();
+    const { unmount } = renderPopover(anchor, onRequestClose);
+
+    const reactModalPortal = document.createElement("div");
+    reactModalPortal.className = "ReactModalPortal";
+    const modalButton = document.createElement("button");
+    reactModalPortal.appendChild(modalButton);
+    document.body.appendChild(reactModalPortal);
+
+    act(() => {
+      modalButton.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    });
+
+    expect(onRequestClose).not.toHaveBeenCalled();
+
+    unmount();
+    anchor.remove();
+    reactModalPortal.remove();
+  });
+
   // A11y: react-modal (o que isto substitui) movia o foco para dentro ao
   // abrir e devolvia ao elemento que abriu ao fechar, de graça — um
   // `Box` portado não ganha isso sozinho.

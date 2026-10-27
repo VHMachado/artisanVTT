@@ -5,6 +5,7 @@ import { useToasts } from "react-toast-notifications";
 import MapControls from "./MapControls";
 import MapDock from "./MapDock";
 import MapBackButton from "./MapBackButton";
+import MapCastButton from "./MapCastButton";
 import MapInteraction from "./MapInteraction";
 import MapGrid from "./MapGrid";
 import DarknessOverlay from "../konva/DarknessOverlay";
@@ -176,13 +177,15 @@ function Map({
       settings.select
     );
 
-  // Pedido do usuário (2026-10-12): só uma seleção CONSTRUÍDA POR
-  // shift+click (não uma marquee) usa o caminho de grupo do próprio
-  // Token.tsx (groupSelectedIds) — uma seleção de marquee já tem seu
-  // próprio arraste em grupo via a shape <Selection> (Selection.tsx),
-  // e aplicar os dois ao mesmo tempo moveria cada token duas vezes.
-  const shiftSelectedIds =
-    selection?.builtByClick
+  // Pedido do usuário (2026-10-12, revisado 2026-10-26): toda seleção
+  // JÁ RESOLVIDA num grupo de tokens — construída por shift+click OU
+  // por uma marquee que terminou de arrastar e encontrou tokens — usa
+  // o caminho de grupo do próprio Token.tsx (groupSelectedIds). Uma
+  // marquee ainda EM ANDAMENTO (não resolvida) continua tendo seu
+  // próprio arraste via a shape <Selection> (Selection.tsx); aplicar os
+  // dois ao mesmo tempo moveria cada token duas vezes.
+  const activeSelectionIds =
+    selection?.resolved
       ? new Set(selection.items.map((item) => item.id))
       : new Set<string>();
 
@@ -209,7 +212,7 @@ function Map({
       tableId,
       onTokenShiftClick,
       onTokenClick,
-      shiftSelectedIds,
+      activeSelectionIds,
       shiftSelectEnabled,
       activeTokenId
     );
@@ -262,7 +265,14 @@ function Map({
               onClearSelection={clearSelection}
               tracker={tracker}
             />
-            <MapBackButton />
+            {/* "Voltar para a Home" não é renderizado na janela de
+                Espectador. Ela é uma segunda instância do app que o
+                Mestre abre JÁ dentro de uma Mesa (helpers/spectator.ts),
+                e routes/Home.tsx renavega para cá no mesmo instante —
+                então o botão não leva a lugar nenhum. Ele só existia
+                como caminho de volta para quem entrou pela Home. */}
+            {!isSpectator && <MapBackButton />}
+            <MapCastButton />
           </>
         }
         bindings={bindings}

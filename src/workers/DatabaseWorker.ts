@@ -117,81 +117,6 @@ async function buildSelectiveExport(
   return transferable(await blobToBuffer(exportedBlob));
 }
 
-/**
- * Exports the whole database except `user`, for a GM's server backup
- * (modals/AccountModal.tsx) — restoring it on a different machine should
- * keep THAT machine's identity, not overwrite it.
- */
-async function buildFullExport(progressCallback: ProgressCallback): Promise<Uint8Array> {
-  const exportedBlob = await exportDB(getDatabase({}) as any, {
-    progressCallback,
-    filter: (table) => table !== "user",
-    numRowsPerChunk: 1,
-  });
-  return transferable(await blobToBuffer(exportedBlob));
-}
-
-/**
- * Restores a GM server backup over the live database. The local `user`
- * row is never overwritten; every other restored row whose owner differs
- * from this browser's own user id is reassigned to it so the content is
- * editable afterward.
- */
-async function restoreFullBackup(data: Blob, progressCallback: ProgressCallback) {
-  const meta = await peakImportFile(data);
-  if (!meta.data) {
-    throw new Error("Unable to parse backup");
-  }
-
-  const db = getDatabase({});
-  if (meta.data.databaseVersion > db.verno) {
-    throw new Error(
-      `Backup was made with a newer version of the app. Current database is version ${db.verno} but the backup is ${meta.data.databaseVersion}`
-    );
-  }
-
-  const localUserId: string | undefined = (await db.table("user").get("userId"))?.value;
-  // Reassigned owner ids are collected DURING the import (table order
-  // isn't guaranteed) and reconciled against placed tokens afterward.
-  const reassignedOwners = new Set<string>();
-
-  await importInto(db as any, data, {
-    progressCallback,
-    acceptNameDiff: true,
-    acceptVersionDiff: true,
-    overwriteValues: true,
-    filter: (table, value) => {
-      if (table === "user") {
-        return false;
-      }
-      if (localUserId && (table === "maps" || table === "tokens" || table === "assets")) {
-        if (value.owner && value.owner !== localUserId) {
-          reassignedOwners.add(value.owner);
-        }
-        value.owner = localUserId;
-      }
-      return true;
-    },
-  });
-
-  if (!localUserId || reassignedOwners.size === 0) {
-    return;
-  }
-
-  // A placed token's owner tracks its map's owner: the backup account's
-  // OWN tokens become ours, a player's placed token keeps that player.
-  await db
-    .table("states")
-    .toCollection()
-    .modify((state: any) => {
-      for (const tokenState of Object.values(state.tokens ?? {}) as any[]) {
-        if (reassignedOwners.has(tokenState.owner)) {
-          tokenState.owner = localUserId;
-        }
-      }
-    });
-}
-
 function hasShapeFor(table: string, value: any): boolean {
   if (table === "maps" || table === "tokens") {
     return "id" in value && "owner" in value;
@@ -300,8 +225,6 @@ const exposedService = {
   loadData: readTable,
   putData: writeRow,
   exportData: buildSelectiveExport,
-  exportAllData: buildFullExport,
-  importAllData: restoreFullBackup,
   importData: stageImport,
   cleanAssetCache: trimAssetCache,
 };

@@ -13,10 +13,7 @@ import useSetting from "../hooks/useSetting";
 
 import ConfirmModal from "./ConfirmModal";
 import ImportExportModal from "./ImportExportModal";
-import AccountModal from "./AccountModal";
 import MonsterArtLocalModal from "./MonsterArtLocalModal";
-
-import { accountsAvailable } from "../helpers/account";
 
 import { MapState } from "../types/MapState";
 
@@ -34,8 +31,8 @@ const SLIDER_LABEL_STYLE = { flexDirection: "column", alignItems: "stretch" } as
  * pt-BR, matching the rest of the app (this used to be the one
  * English-only surface — "Settings", "Clear Cache" — before this pass).
  *
- * The sub-dialogs (erase-everything confirm, import/export, account
- * backup) stay real Modals rather than nested Popover content — a
+ * The sub-dialogs (erase-everything confirm, import/export) stay real
+ * Modals rather than nested Popover content — a
  * modal nested in a popover is how you get a panel that
  * closes itself mid-import.
  */
@@ -45,7 +42,6 @@ export default function SettingsModal() {
 
   const [confirmingErase, setConfirmingErase] = useState(false);
   const [importExportOpen, setImportExportOpen] = useState(false);
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [monsterArtModalOpen, setMonsterArtModalOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -210,15 +206,6 @@ export default function SettingsModal() {
             >
               Importar / Exportar dados
             </Button>
-            {accountsAvailable && (
-              <Button
-                variant="primary"
-                disabled={databaseStatus !== "loaded"}
-                onClick={() => setAccountModalOpen(true)}
-              >
-                Backup no servidor
-              </Button>
-            )}
             <Button variant="primary" disabled={!database} onClick={pruneUnusedAssetsAndReload}>
               Limpar cache
             </Button>
@@ -254,10 +241,6 @@ export default function SettingsModal() {
       <ImportExportModal
         isOpen={importExportOpen}
         onRequestClose={() => setImportExportOpen(false)}
-      />
-      <AccountModal
-        isOpen={accountModalOpen}
-        onRequestClose={() => setAccountModalOpen(false)}
       />
       <MonsterArtLocalModal
         isOpen={monsterArtModalOpen}

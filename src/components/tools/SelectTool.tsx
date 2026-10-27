@@ -58,7 +58,7 @@ function hitTokens(stage: Konva.Stage, selection: SelectionType, canvas: Pick<Se
 }
 
 function SelectionOverlay({ selection, props, prevent }: { selection: SelectionType | null; props: MapSelectProps; prevent: React.MutableRefObject<boolean> }) {
-  if (!selection || selection.builtByClick) return null;
+  if (!selection || selection.resolved) return null;
   return <Selection selection={selection} onSelectionChange={props.onSelectionChange} onSelectionItemsChange={props.onSelectionItemsChange} onPreventSelectionChange={(value) => { prevent.current = value; }} onSelectionDragStart={props.onSelectionDragStart} onSelectionDragEnd={props.onSelectionDragEnd} map={props.map} />;
 }
 
@@ -73,6 +73,22 @@ function SelectTool(props: MapSelectProps) {
   const stageRef = useMapStage();
   const [brushing, setBrushing] = useState(false);
   const preventSelection = useRef(false);
+  // Bug fix (2026-10-26): Konva's own "click tap" on the stage fires
+  // from the SAME pointerup that ends a marquee drag — it is a native
+  // Konva click, independent of the custom drag emitter above, and
+  // nothing about this tool's drag gesture suppresses it. The `click`
+  // handler below used to tell "this click is just the marquee's own
+  // trailing click" apart from "a genuine new click" by checking
+  // whether its target was the marching-ants overlay shape
+  // (`id="selection"`) — which worked by accident ONLY because that
+  // shape used to stay mounted forever after a successful marquee.
+  // Now that a resolved selection (see types/Select.ts) unmounts that
+  // shape immediately, the very same trailing click always missed the
+  // check and fell into the "clicked elsewhere" branch, wiping out the
+  // selection `end()` had just built in the SAME gesture — the
+  // marquee tool stopped ever keeping a selection. This ref swallows
+  // exactly that one trailing click.
+  const suppressNextClick = useRef(false);
 
   useEffect(() => {
     if (!listensForClicks) return;
@@ -109,10 +125,23 @@ function SelectTool(props: MapSelectProps) {
         props.onSelectionChange(null);
         return;
       }
-      props.onSelectionChange((current) => current ? { ...current, items } : current);
+      // Bug fix (2026-10-26): a marquee-built selection used to stay
+      // behind its own draggable Konva shape forever (the "legacy"
+      // marching-ants outline below), which (a) looked dated and (b)
+      // made it impossible to drag a token by clicking it directly —
+      // only the outline itself was draggable. Marking it `resolved`
+      // here switches it onto the exact same per-token group-drag path
+      // a shift+click selection already uses (see types/Select.ts's
+      // doc comment and useMapTokens.tsx's `draggable`/`groupSelectedIds`).
+      suppressNextClick.current = true;
+      props.onSelectionChange((current) => current ? { ...current, items, resolved: true } : current);
       props.onSelectionMenuOpen(true);
     };
     const click = (event: Konva.KonvaEventObject<MouseEvent>) => {
+      if (suppressNextClick.current) {
+        suppressNextClick.current = false;
+        return;
+      }
       if (event.target.id() === "selection") props.onSelectionMenuOpen(true);
       else {
         props.onSelectionChange(null);
